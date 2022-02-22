@@ -7,8 +7,10 @@ format, ready to be fed to entropy_model.py
 import os
 import sys
 import numpy as np
+from torch import le
 import open3d as o3d
 import argparse
+from tqdm import tqdm
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--modelnet10', help="Specify root directory to the ModelNet10 dataset.", required=True)
@@ -35,7 +37,7 @@ else:
         os.makedirs(os.path.join(VOX_DIR, lab, 'train'))
         os.makedirs(os.path.join(VOX_DIR, lab, 'test'))
 
-for label in labels:
+for label in tqdm(labels, total=len(labels)):
     files_train = os.listdir(os.path.join(DATA_PATH, label, "train"))
     files_test = os.listdir(os.path.join(DATA_PATH, label, "test"))
     files_train.sort()
@@ -47,7 +49,7 @@ for label in labels:
         if not file.endswith('off'):
             files_test.remove(file)
 
-    for file in files_train:
+    for file in tqdm(files_train, total=len(files_train)):
         filename = os.path.join(DATA_PATH, label, "train", file)
         print(f"Elaborating file {filename}...")
         out_name = os.path.join(VOX_DIR, label, 'train', file.split(".")[0] + ".npy")
@@ -69,7 +71,7 @@ for label in labels:
             mask[vox.grid_index[0], vox.grid_index[1], vox.grid_index[2]] = 1
         np.save(out_name, mask, allow_pickle=False, fix_imports=False)
 
-    for file in files_test:
+    for file in tqdm(files_test, total = len(files_test)):
         filename = os.path.join(DATA_PATH, label, "test", file)
         print(f"Elaborating file {filename}...")
         out_name = os.path.join(VOX_DIR, label, 'test', file.split(".")[0] + ".npy")
