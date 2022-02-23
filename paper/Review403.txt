@@ -1,0 +1,91 @@
+Reviewer 1 of ROMAN 2021 submission 24
+
+Comments to the author
+======================
+
+In this work, the authors present a method for multi-view
+3d object recognition and pose estimation. In a first step,
+a neural networks predicts the most informative views of an
+object from a voxelization of the object mesh. This network
+is trained to predict the entropy of an specific viewpoint.
+The most informative viewpoints of an object are then
+rendered as images and fed to a second network that
+predicts class label and discrete pose label. The different
+viewpoints are separately fed to the network and combined
+using majority vote in a post-processing step. Finally, the
+authors show results on the synthetic ModelNet10 dataset
+for object recognition and pose estimation.
+
+Overall, the writing style is good, the structure is clear,
+and the language is properly used. Several images
+illustrate the approach.
+
+The abstract and introduction starts very promising and
+addresses important problems in the field of robotics.
+Unfortunately, the results and technical approach does not
+meet these expectations.
+Most problematic is the lack of novelty, and
+inconsistencies of the different parts put together.
+First of all, the viewpoint network predicts the entropy,
+so why exactly is a network needed when the entropy can be
+calculated from the image directly using mathematical
+formulas without prediction errors? The 3D Conv Nets are
+known to be computationally expensive, so making a point on
+efficiency needs to be proven. Further, from Fig. 1 it is
+evident that the entropy prediction network requires an
+input mesh/voxel of an object, but which mesh/voxel is fed
+to the network, if the object is not known at this point
+and only predicted at a later stage? Also, since the
+problem definition is to jointly estimate the object class
+and the pose, it needs to be shown that the image entropy
+solely is sufficient for the best view prediction and not
+using a metric that best separates the different classes
+and poses.
+This brings me to another major shortcoming, which is the
+lack of comparison to other works (baselines). The authors
+only present self-comparisons, and only on synthetic
+datasets with no real-world data, which makes it hard to
+judge the performance with respect to other works.
+
+More details on major issues are:
+- Sec. III.A: The authors state that "projected views [...]
+are computational expensive" but later the authors do
+exactly that. "[...] we took images from 60 positions,
+regularly distributed [...]", and also require these
+renderings in Sec. IV.A in an extensive scale.
+- Eq. 2: The argmax operator only gives a single value, but
+what are the indices $_v$ supposed to indicate? Why is the
+argument of the argmax operator an equation? From calculus
+viewpoint, the derivative of a function is equal to 0 at
+the maximum, but this does not work together with the
+argmax here.
+- Sec. III.A: Why are linear activation used for the output
+of the network? The entropy is constrained to positive
+values, so these fact could be used directly in the network
+design by using a sigmoid, or relu output activation.
+- Fig. 4: Consider using a log-scaled y-axis for better
+visualization. What are the final errors? What do the red
+and blue line depict?
+- Sec. IV.A: For generating the training data for the
+viewpoint prediction network, the authors render the object
+mesh as depth image and voxelize the mesh in a unit cube.
+Why exactly do is a rendering required here? Also, Fig. 1
+shows the full mesh as input.
+- Sec. IV: The authors only use a predefined discrete set
+of viewpoints. What happens when the network sees an object
+from a novel viewpoint that was not seen during training?
+- Sec. IV: How does the accuracy of the method depend on
+the number of views? So what is the pose accuracy with only
+the best view vs the used peak detection algorithm vs using
+top-K views vs N random views?
+
+Minor issues:
+- Sec. I: The last paragraph is wordy.
+- Sec. II: The second paragraph is wordy and lacks any
+references to the defined separation of the field.
+- Fig. I: "for as many CNNs" needs improved formulation
+- Sec. II: "the earliest work would be" does not sound
+definite, is it the earliest work?
+- Sec. II: "VoxNet designed to" grammar
+- References are not in a canonical format. Also, consider
+citing the proper publications and not arXiv.

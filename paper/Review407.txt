@@ -1,0 +1,21 @@
+Reviewer 3 of ROMAN 2021 submission 24
+
+Comments to the author
+======================
+
+The paper proposed a deep learning based approach to tackle
+the simultaneous recognition and pose estimation of 3D
+objects. The authors suggested a deep object-agnostic
+entropy estimation odel,capable of predicting the best
+viewpoints of a givenobject. The obtained views of the
+object are then used to predict the pose and category label
+of the target object simultaneously. Experimental results
+demonstrate the effectiveness.
+The proposed method is novel. The paper is well writen.
+
+There are several issues need to deal with.
+1. In the Results section,Evaluation of best-views
+prediction model. Comparison between the proposed work and
+other menthods such as [17] needs to be conducted.
+2. The time complexity of the work is not given. It is
+important for robot application.

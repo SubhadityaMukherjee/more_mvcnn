@@ -1,0 +1,51 @@
+Reviewer 4 of ROMAN 2021 submission 24
+
+Comments to the author
+======================
+
+The authors propose a multi-view simultaneous 3D rigid
+object recognition and pose estimation pipeline suitable
+for human centric as well as industrial environments.
+Object classification, localization and especially 6DoF
+pose estimation is relevant in all robot application
+domains across different industries, e. g. for rigid object
+manipulation. The proposed method focuses on simultaneous
+recognition and estimation. Instead of common point-based
+methods the authors choose a view-based approach for
+performance reasons. The presented deep learning approach
+divides the task into two main parts, best-view prediction
+and object recognition and pose estimation. For this
+purpose, object-specific spherical entropy maps are
+estimated via CNN. Thereby obtained best views serve as
+input for the classification and 6DoF pose estimation.
+
+However, even if the research is structured in a good
+scientific manner as well as the proposed method represents
+a meaningful improvement towards simultaneous 3D object
+recognition and 6DoF pose estimation, following points
+should be considered:
+
+Some relevant statements made in the introduction and
+motivation as well as in the related work section are not
+sufficiently backed-up by references. Quantification of the
+achievable performance of the different principles for pose
+estimation would be beneficial. 
+
+The motivation should better clarify which robot specific
+use cases are mainly addressed by the pipeline (e. g.
+exploration/mapping or object manipulation). This also
+affects the chosen procedure of experiments and utilized
+evaluation metrics. For instance, within the field of
+industrial object manipulation, metrics like ADD and VSD
+are more common for pose estimation accuracy evaluation. 
+
+Some of the work cited are nearly a half-decade old, e. g.
+FPNN is outperformed by PointCNN. 
+
+The method and evaluation sections describing respectively
+assessing the proposed pose estimation should be further
+detailed. 
+
+It is difficult to read figures and in particular labeling
+due to the chosen small font size (cf. fig. 1, 3, 5 & 6).
+In Fig. 4 black line and font color should be chosen.

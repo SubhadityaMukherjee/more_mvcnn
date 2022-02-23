@@ -7,10 +7,10 @@ format, ready to be fed to entropy_model.py
 import os
 import sys
 import numpy as np
-from torch import le
 import open3d as o3d
 import argparse
 from tqdm import tqdm
+from zmq import device
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--modelnet10', help="Specify root directory to the ModelNet10 dataset.", required=True)
@@ -30,65 +30,75 @@ for cur in os.listdir(DATA_PATH):
 labels.sort()
 
 if os.path.exists(VOX_DIR):
-    print(f"[ERROR] {VOX_DIR} already exists. Remove before running or change output location.")
-    sys.exit()
-else:
-    for lab in labels:
-        os.makedirs(os.path.join(VOX_DIR, lab, 'train'))
-        os.makedirs(os.path.join(VOX_DIR, lab, 'test'))
-
+    import shutil
+    shutil.rmtree(VOX_DIR)
+# os.makedirs(VOX_DIR)
+for lab in labels:
+    os.makedirs(os.path.join(VOX_DIR, lab, 'train'))
+    os.makedirs(os.path.join(VOX_DIR, lab, 'test'))
+device = o3d.core.Device("CUDA:0")
 for label in tqdm(labels, total=len(labels)):
     files_train = os.listdir(os.path.join(DATA_PATH, label, "train"))
     files_test = os.listdir(os.path.join(DATA_PATH, label, "test"))
     files_train.sort()
     files_test.sort()
+    
     for file in files_train:
         if not file.endswith('off'):
             files_train.remove(file)
     for file in files_test:
         if not file.endswith('off'):
             files_test.remove(file)
-
     for file in tqdm(files_train, total=len(files_train)):
-        filename = os.path.join(DATA_PATH, label, "train", file)
-        print(f"Elaborating file {filename}...")
-        out_name = os.path.join(VOX_DIR, label, 'train', file.split(".")[0] + ".npy")
-        mesh = o3d.io.read_triangle_mesh(filename)
-        mesh.scale(1 / np.max(mesh.get_max_bound() - mesh.get_min_bound()),
-                   center=mesh.get_center())
-        center = (mesh.get_max_bound() + mesh.get_min_bound()) / 2
-        mesh = mesh.translate((-center[0], -center[1], -center[2]))
+        try:
+            filename = os.path.join(DATA_PATH, label, "train", file)
+            # print(f"Elaborating file {filename}...")
+            out_name = os.path.join(VOX_DIR, label, 'train', file.split(".")[0] + ".npy")
+            mesh = o3d.io.read_triangle_mesh(filename)
+            # print(mesh)
+            mesh.scale(1 / np.max(mesh.get_max_bound() - mesh.get_min_bound()),
+                    center=mesh.get_center())
+            center = (mesh.get_max_bound() + mesh.get_min_bound()) / 2
+            mesh = mesh.translate((-center[0], -center[1], -center[2]))
 
-        # (1/voxel_size)^3 will be the size of the input of the network, 0.02 results in 50^3=125000
-        voxel_grid = o3d.geometry.VoxelGrid.create_from_triangle_mesh_within_bounds(input=mesh, voxel_size=VOXEL_SIZE,
-                                                                                    min_bound=np.array(
-                                                                                        [-0.5, -0.5, -0.5]),
-                                                                                    max_bound=np.array([0.5, 0.5, 0.5]))
-        voxels = voxel_grid.get_voxels()
-        grid_size = args.n_voxels
-        mask = np.zeros((grid_size, grid_size, grid_size))
-        for vox in voxels:
-            mask[vox.grid_index[0], vox.grid_index[1], vox.grid_index[2]] = 1
-        np.save(out_name, mask, allow_pickle=False, fix_imports=False)
+            # (1/voxel_size)^3 will be the size of the input of the network, 0.02 results in 50^3=125000
+            voxel_grid = o3d.geometry.VoxelGrid.create_from_triangle_mesh_within_bounds(input=mesh, voxel_size=VOXEL_SIZE,
+                                                                                        min_bound=np.array(
+                                                                                            [-0.5, -0.5, -0.5]),
+                                                                                        max_bound=np.array([0.5, 0.5, 0.5]),
+                                                                                        )
+            voxels = voxel_grid.get_voxels()
+            # print("voxel")
+            grid_size = args.n_voxels
+            mask = np.zeros((grid_size, grid_size, grid_size))
+            for vox in voxels:
+                mask[vox.grid_index[0], vox.grid_index[1], vox.grid_index[2]] = 1
+            np.save(out_name, mask, allow_pickle=False, fix_imports=False)
+        except Exception as e:
+            print(e)
+        # exit(0)
 
     for file in tqdm(files_test, total = len(files_test)):
-        filename = os.path.join(DATA_PATH, label, "test", file)
-        print(f"Elaborating file {filename}...")
-        out_name = os.path.join(VOX_DIR, label, 'test', file.split(".")[0] + ".npy")
-        mesh = o3d.io.read_triangle_mesh(filename)
-        mesh.scale(1 / np.max(mesh.get_max_bound() - mesh.get_min_bound()),
-                   center=mesh.get_center())
-        center = (mesh.get_max_bound() + mesh.get_min_bound()) / 2
-        mesh = mesh.translate((-center[0], -center[1], -center[2]))
+        try:
+            filename = os.path.join(DATA_PATH, label, "test", file)
+            # print(f"Elaborating file {filename}...")
+            out_name = os.path.join(VOX_DIR, label, 'test', file.split(".")[0] + ".npy")
+            mesh = o3d.io.read_triangle_mesh(filename)
+            mesh.scale(1 / np.max(mesh.get_max_bound() - mesh.get_min_bound()),
+                    center=mesh.get_center())
+            center = (mesh.get_max_bound() + mesh.get_min_bound()) / 2
+            mesh = mesh.translate((-center[0], -center[1], -center[2]))
 
-        # (1/voxel_size)^3 will be the size of the input of the network, 0.02 results in 50^3=125000
-        voxel_grid = o3d.geometry.VoxelGrid.create_from_triangle_mesh_within_bounds(input=mesh, voxel_size=VOXEL_SIZE,
-                                                                                    min_bound=np.array(
-                                                                                        [-0.5, -0.5, -0.5]),
-                                                                                    max_bound=np.array([0.5, 0.5, 0.5]))
-        voxels = voxel_grid.get_voxels()
-        grid_size = args.n_voxels
-        mask = np.zeros((grid_size, grid_size, grid_size))
-        for vox in voxels:
-            mask[vox.grid_index[0], vox.grid_index[1], vox.grid_index[2]] = 1
-        np.save(out_name, mask, allow_pickle=False, fix_imports=False)
+            # (1/voxel_size)^3 will be the size of the input of the network, 0.02 results in 50^3=125000
+            voxel_grid = o3d.geometry.VoxelGrid.create_from_triangle_mesh_within_bounds(input=mesh, voxel_size=VOXEL_SIZE,
+                                                                                        min_bound=np.array(
+                                                                                            [-0.5, -0.5, -0.5]),
+                                                                                        max_bound=np.array([0.5, 0.5, 0.5]), )
+            voxels = voxel_grid.get_voxels()
+            grid_size = args.n_voxels
+            mask = np.zeros((grid_size, grid_size, grid_size))
+            for vox in voxels:
+                mask[vox.grid_index[0], vox.grid_index[1], vox.grid_index[2]] = 1
+            np.save(out_name, mask, allow_pickle=False, fix_imports=False)
+        except:
+            pass
