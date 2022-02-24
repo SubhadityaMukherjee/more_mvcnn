@@ -56,9 +56,9 @@ def parallel(func, arr: Collection, max_workers: int = 12, **kwargs):
         return results
 
 
-# MAX_THREAD = max(multiprocessing.cpu_count(),10) - 1
+MAX_THREAD = max(multiprocessing.cpu_count(),10) - 1
 # MAX_THREAD = 12
-# print(MAX_THREAD)
+print(MAX_THREAD)
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--modelnet10', help="Specify root directory to the ModelNet10 dataset.", required=True)
@@ -158,4 +158,4 @@ for label in tqdm(labels, total=len(labels)):
     # results = Parallel(n_jobs=MAX_THREAD)(delayed(run_train)(file, label) for file in files_train)
 
     # results = Parallel(n_jobs=MAX_THREAD)(delayed(run_train)(file, label) for file in files_test)
-    results = parallel(partial(run_train, label = label), files_train, num_cpus = 10)
+    results = parallel(partial(run_train, label = label), files_train, num_cpus = MAX_THREAD)
