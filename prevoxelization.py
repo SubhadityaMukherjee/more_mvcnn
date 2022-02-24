@@ -6,7 +6,6 @@ format, ready to be fed to entropy_model.py
 """
 import os
 import sys
-from tkinter.tix import MAX
 import numpy as np
 import open3d as o3d
 import argparse
