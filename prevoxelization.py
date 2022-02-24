@@ -13,7 +13,7 @@ from tqdm import tqdm
 from joblib import Parallel, delayed
 import multiprocessing
 import subprocess
-MAX_THREAD = max(multiprocessing.cpu_count(),1)
+MAX_THREAD = max(multiprocessing.cpu_count(),10) - 2
 print(MAX_THREAD)
 
 parser = argparse.ArgumentParser()
