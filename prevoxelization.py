@@ -13,7 +13,8 @@ from tqdm import tqdm
 from joblib import Parallel, delayed
 import multiprocessing
 import subprocess
-MAX_THREAD = max(multiprocessing.cpu_count(),10) - 1
+# MAX_THREAD = max(multiprocessing.cpu_count(),10) - 1
+MAX_THREAD = 12
 print(MAX_THREAD)
 
 parser = argparse.ArgumentParser()
@@ -33,15 +34,15 @@ for cur in os.listdir(DATA_PATH):
         labels.append(cur)
 labels.sort()
 
+# labels = labels[6::]
+
 if os.path.exists(VOX_DIR):
     import shutil
     shutil.rmtree(VOX_DIR)
-# os.makedirs(VOX_DIR)
+os.makedirs(VOX_DIR)
 for lab in labels:
     os.makedirs(os.path.join(VOX_DIR, lab, 'train'))
     os.makedirs(os.path.join(VOX_DIR, lab, 'test'))
-device = o3d.core.Device("CUDA:0")
-
 
 def run_train(file, label):
     try:
@@ -113,11 +114,4 @@ for label in tqdm(labels, total=len(labels)):
             files_test.remove(file)
     results = Parallel(n_jobs=MAX_THREAD)(delayed(run_train)(file, label) for file in files_train)
 
-    # for file in tqdm(files_train, total=len(files_train)):
-    #     try:
-    #     except Exception as e:
-    #         print(e)
-    # exit(0)
-
     results = Parallel(n_jobs=MAX_THREAD)(delayed(run_train)(file, label) for file in files_test)
-        
