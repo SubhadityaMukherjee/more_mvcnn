@@ -145,32 +145,34 @@ def nonblocking_custom_capture(tr_mesh, rot_xyz, last_rot):
 
 
 def train(filename, label):
-    ViewData.obj_path = os.path.join(DATA_PATH, label, args.set, filename)
+    try:
+        ViewData.obj_path = os.path.join(DATA_PATH, label, args.set, filename)
 
-    # print(filename)
-    # print(OBJECT_INDEX)
-    ViewData.obj_filename = filename
-    ViewData.obj_index = filename.split(".")[0].split("_")[-1]
-    ViewData.obj_label = filename.split(".")[0].replace("_" + ViewData.obj_index, '')
-    ViewData.view_index = 0
-    mesh = io.read_triangle_mesh(ViewData.obj_path)
-    mesh.vertices = normalize3d(mesh.vertices)
-    mesh.compute_vertex_normals()
+        # print(filename)
+        # print(OBJECT_INDEX)
+        ViewData.obj_filename = filename
+        ViewData.obj_index = filename.split(".")[0].split("_")[-1]
+        ViewData.obj_label = filename.split(".")[0].replace("_" + ViewData.obj_index, '')
+        ViewData.view_index = 0
+        mesh = io.read_triangle_mesh(ViewData.obj_path)
+        mesh.vertices = normalize3d(mesh.vertices)
+        mesh.compute_vertex_normals()
 
-    rotations = []
-    for j in range(0, N_VIEWS_H):
-        for i in range(N_VIEWS_W):
-            # Excluding 'rings' on 0 and 180 degrees since it would be the same projection but rotated
-            rotations.append((-(j + 1) * np.pi / (N_VIEWS_H + 1), 0, i * 2 * np.pi / N_VIEWS_W))
-    last_rotation = (0, 0, 0)
-    for rot in rotations:
-        nonblocking_custom_capture(mesh, rot, last_rotation)
-        ViewData.view_index += 1
-        if args.verbose:
-            print(f"[INFO] Elaborating view {ViewData.view_index}/{N_VIEWS_W * N_VIEWS_H}...")
-        last_rotation = rot
+        rotations = []
+        for j in range(0, N_VIEWS_H):
+            for i in range(N_VIEWS_W):
+                # Excluding 'rings' on 0 and 180 degrees since it would be the same projection but rotated
+                rotations.append((-(j + 1) * np.pi / (N_VIEWS_H + 1), 0, i * 2 * np.pi / N_VIEWS_W))
+        last_rotation = (0, 0, 0)
+        for rot in rotations:
+            nonblocking_custom_capture(mesh, rot, last_rotation)
+            ViewData.view_index += 1
+            if args.verbose:
+                print(f"[INFO] Elaborating view {ViewData.view_index}/{N_VIEWS_W * N_VIEWS_H}...")
+            last_rotation = rot
+    except Exception as e:
+        print(e)
     
-
 
 for label in tqdm(labels, total=len(labels)):
     files = os.listdir(os.path.join(DATA_PATH, label, args.set))
@@ -181,6 +183,7 @@ for label in tqdm(labels, total=len(labels)):
 
     results = Parallel(n_jobs=MAX_THREAD)(delayed(train)(filename, label) for filename in files)
 
+print("DONE WITH PART 1")
 for label in tqdm(labels, total=len(labels)):
     files = os.listdir(os.path.join(DATA_PATH, label, args.set))
     files.sort()

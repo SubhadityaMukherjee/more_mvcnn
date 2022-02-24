@@ -13,9 +13,52 @@ from tqdm import tqdm
 from joblib import Parallel, delayed
 import multiprocessing
 import subprocess
+from concurrent.futures import ProcessPoolExecutor
+import concurrent
+from types import SimpleNamespace
+from functools import partial
+from typing import *
+
+def num_cpus():
+    """
+    Get number of cpus
+    """
+    try:
+        return len(os.sched_getaffinity(0))
+    except AttributeError:
+        return os.cpu_count()
+
+def ifnone(a, b):
+    """
+    Return if None
+    """
+    return b if a is None else a
+def parallel(func, arr: Collection, max_workers: int = 12, **kwargs):
+
+    """
+    Call `func` on every element of `arr` in parallel using `max_workers`.
+    """
+    _default_cpus = min(max_workers, num_cpus())
+    defaults = SimpleNamespace(
+        cpus=_default_cpus, cmap="viridis", return_fig=False, silent=False
+    )
+
+    max_workers = ifnone(max_workers, defaults.cpus)
+    if max_workers < 2:
+        results = [func(o) for i, o in tqdm(enumerate(arr), total=len(arr))]
+    else:
+        with ProcessPoolExecutor(max_workers=max_workers) as ex:
+            futures = [ex.submit(func, o) for i, o in enumerate(arr)]
+            results = []
+            for f in tqdm(concurrent.futures.as_completed(futures), total=len(arr)):
+                results.append(f.result())
+    if any([o is not None for o in results]):
+        return results
+
+
 # MAX_THREAD = max(multiprocessing.cpu_count(),10) - 1
-MAX_THREAD = 12
-print(MAX_THREAD)
+# MAX_THREAD = 12
+# print(MAX_THREAD)
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--modelnet10', help="Specify root directory to the ModelNet10 dataset.", required=True)
@@ -34,7 +77,7 @@ for cur in os.listdir(DATA_PATH):
         labels.append(cur)
 labels.sort()
 
-# labels = labels[6::]
+labels = labels[6::]
 
 if os.path.exists(VOX_DIR):
     import shutil
@@ -112,6 +155,7 @@ for label in tqdm(labels, total=len(labels)):
     for file in files_test:
         if not file.endswith('off'):
             files_test.remove(file)
-    results = Parallel(n_jobs=MAX_THREAD)(delayed(run_train)(file, label) for file in files_train)
+    # results = Parallel(n_jobs=MAX_THREAD)(delayed(run_train)(file, label) for file in files_train)
 
-    results = Parallel(n_jobs=MAX_THREAD)(delayed(run_train)(file, label) for file in files_test)
+    # results = Parallel(n_jobs=MAX_THREAD)(delayed(run_train)(file, label) for file in files_test)
+    results = parallel(partial(run_train, label = label), files_train, num_cpus = 10)
