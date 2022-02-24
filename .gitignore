@@ -3,5 +3,6 @@ data
 *.h5
 tmp/
 __pycache__
-voxel_data/
-voxel_data
+.voxel_data/
+.voxel_data
+*.npy
