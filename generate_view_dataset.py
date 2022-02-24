@@ -14,12 +14,17 @@ import cv2
 from utility import normalize3d
 from time import time
 from tqdm import tqdm
+from joblib import Parallel, delayed
+import multiprocessing
+import subprocess
+MAX_THREAD = max(multiprocessing.cpu_count(),10) - 1
+print(MAX_THREAD)
 
 parser = argparse.ArgumentParser(description="Generates views regularly positioned on a sphere around the object.")
 parser.add_argument("--modelnet10", help="Specify root directory to the ModelNet10 dataset.")
 parser.add_argument("--set", help="Subdirectory: 'train' or 'test'.", default='train')
 parser.add_argument("--save_depth", help="Add to also save the correspondent depth-views dataset.", action='store_true')
-parser.add_argument("--out", help="Select a desired output directory.", default="./")
+parser.add_argument("--out", help="Select a desired output directory.", default=".")
 parser.add_argument("-v", "--verbose", help="Prints current state of the program while executing.", action='store_true')
 parser.add_argument("-x", "--horizontal_split", help="Number of views from a single ring. Each ring is divided in x "
                                                      "splits so each viewpoint is at an angle of multiple of 360/x. "
@@ -40,6 +45,7 @@ parser.add_argument("-y", "--vertical_split", help="Number of horizontal rings. 
 args = parser.parse_args()
 
 BASE_DIR = sys.path[0]
+print(BASE_DIR)
 OUT_DIR = os.path.join(BASE_DIR, args.out, f'view-dataset-{args.set}')
 DATA_PATH = os.path.join(BASE_DIR, args.modelnet10)
 IMAGE_WIDTH = 224
@@ -60,12 +66,11 @@ class ViewData:
 
 
 if os.path.exists(os.path.join(BASE_DIR, OUT_DIR)):
-    print("[Error] Folder already exists.")
-    exit(0)
-else:
-    os.makedirs(os.path.join(OUT_DIR, "image"))
-    if args.save_depth:
-        os.makedirs(os.path.join(OUT_DIR, "depth"))
+    import shutil
+    shutil.rmtree(os.path.join(BASE_DIR, OUT_DIR))
+os.makedirs(os.path.join(OUT_DIR, "image"))
+if args.save_depth:
+    os.makedirs(os.path.join(OUT_DIR, "depth"))
 
 
 def nonblocking_custom_capture(tr_mesh, rot_xyz, last_rot):
@@ -131,10 +136,44 @@ def nonblocking_custom_capture(tr_mesh, rot_xyz, last_rot):
                     result)
 
 
+
 labels = []
 for cur in os.listdir(DATA_PATH):
     if os.path.isdir(os.path.join(DATA_PATH, cur)):
         labels.append(cur)
+
+def train(filename, label):
+    start = time()
+    ViewData.obj_path = os.path.join(DATA_PATH, label, args.set, filename)
+    ViewData.obj_filename = filename
+    ViewData.obj_index = filename.split(".")[0].split("_")[-1]
+    ViewData.obj_label = filename.split(".")[0].replace("_" + ViewData.obj_index, '')
+    ViewData.view_index = 0
+    if args.verbose:
+        print(f"[INFO] Current object: {ViewData.obj_label}_{ViewData.obj_index}")
+        print(
+            f"[DEBUG] ViewData:\n [objpath: {ViewData.obj_path},\n filename: {ViewData.obj_filename},\n label: {ViewData.obj_label},\n index: {ViewData.obj_index}]")
+    mesh = io.read_triangle_mesh(ViewData.obj_path)
+    mesh.vertices = normalize3d(mesh.vertices)
+    mesh.compute_vertex_normals()
+
+    rotations = []
+    for j in range(0, N_VIEWS_H):
+        for i in range(N_VIEWS_W):
+            # Excluding 'rings' on 0 and 180 degrees since it would be the same projection but rotated
+            rotations.append((-(j + 1) * np.pi / (N_VIEWS_H + 1), 0, i * 2 * np.pi / N_VIEWS_W))
+    last_rotation = (0, 0, 0)
+    for rot in rotations:
+        nonblocking_custom_capture(mesh, rot, last_rotation)
+        ViewData.view_index += 1
+        if args.verbose:
+            print(f"[INFO] Elaborating view {ViewData.view_index}/{N_VIEWS_W * N_VIEWS_H}...")
+        last_rotation = rot
+
+    end = time()
+    if args.verbose:
+        print(f"[INFO] Time to elaborate file {filename}: {end - start}")
+
 
 for label in tqdm(labels, total=len(labels)):
     files = os.listdir(os.path.join(DATA_PATH, label, args.set))
@@ -143,34 +182,4 @@ for label in tqdm(labels, total=len(labels)):
         if not filename.endswith('off'):
             files.remove(filename)
 
-    for filename in tqdm(files, total=len(files)):
-        start = time()
-        ViewData.obj_path = os.path.join(DATA_PATH, label, args.set, filename)
-        ViewData.obj_filename = filename
-        ViewData.obj_index = filename.split(".")[0].split("_")[-1]
-        ViewData.obj_label = filename.split(".")[0].replace("_" + ViewData.obj_index, '')
-        ViewData.view_index = 0
-        if args.verbose:
-            print(f"[INFO] Current object: {ViewData.obj_label}_{ViewData.obj_index}")
-            print(
-                f"[DEBUG] ViewData:\n [objpath: {ViewData.obj_path},\n filename: {ViewData.obj_filename},\n label: {ViewData.obj_label},\n index: {ViewData.obj_index}]")
-        mesh = io.read_triangle_mesh(ViewData.obj_path)
-        mesh.vertices = normalize3d(mesh.vertices)
-        mesh.compute_vertex_normals()
-
-        rotations = []
-        for j in range(0, N_VIEWS_H):
-            for i in range(N_VIEWS_W):
-                # Excluding 'rings' on 0 and 180 degrees since it would be the same projection but rotated
-                rotations.append((-(j + 1) * np.pi / (N_VIEWS_H + 1), 0, i * 2 * np.pi / N_VIEWS_W))
-        last_rotation = (0, 0, 0)
-        for rot in rotations:
-            nonblocking_custom_capture(mesh, rot, last_rotation)
-            ViewData.view_index += 1
-            if args.verbose:
-                print(f"[INFO] Elaborating view {ViewData.view_index}/{N_VIEWS_W * N_VIEWS_H}...")
-            last_rotation = rot
-
-        end = time()
-        if args.verbose:
-            print(f"[INFO] Time to elaborate file {filename}: {end - start}")
+    results = Parallel(n_jobs=MAX_THREAD)(delayed(train)(filename, label) for filename in files)

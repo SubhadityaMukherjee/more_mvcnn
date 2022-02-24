@@ -13,7 +13,7 @@ from tqdm import tqdm
 from joblib import Parallel, delayed
 import multiprocessing
 import subprocess
-MAX_THREAD = max(multiprocessing.cpu_count(),10) - 2
+MAX_THREAD = max(multiprocessing.cpu_count(),10) - 1
 print(MAX_THREAD)
 
 parser = argparse.ArgumentParser()
@@ -103,6 +103,7 @@ for label in tqdm(labels, total=len(labels)):
     files_test = os.listdir(os.path.join(DATA_PATH, label, "test"))
     files_train.sort()
     files_test.sort()
+    print(len(files_train), len(files_test))
     
     for file in files_train:
         if not file.endswith('off'):

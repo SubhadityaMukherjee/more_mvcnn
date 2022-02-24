@@ -11,6 +11,7 @@ Example: -x=12 --> yaw values: phi=[0, 30, 60, 90, 120, ... , 330]
 The entropy values are stored in the entropy_dataset.csv file.
 """
 
+from cProfile import run
 import os
 import sys
 import argparse
@@ -24,10 +25,15 @@ import pandas as pd
 from skimage.measure import shannon_entropy
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+from joblib import Parallel, delayed
+import multiprocessing
+import subprocess
+MAX_THREAD = max(multiprocessing.cpu_count(),10) - 2
+print(MAX_THREAD)
 
 parser = argparse.ArgumentParser(description="Generates a dataset in CSV format of depth-views entropy values.")
 parser.add_argument("--modelnet10", help="Specify root directory to the ModelNet10 dataset.", required=True)
-parser.add_argument("--out", help="Select a desired output directory.", default="./")
+parser.add_argument("--out", help="Select a desired output directory.", default=".")
 parser.add_argument("-v", "--verbose", help="Prints current state of the program while executing.", action='store_true')
 parser.add_argument("-x", "--horizontal_split", help="Number of views from a single ring. Each ring is divided in x "
                                                      "splits so each viewpoint is at an angle of multiple of 360/x. "
@@ -106,6 +112,73 @@ if os.path.exists(TMP_DIR):
 else:
     os.makedirs(TMP_DIR)
 
+def run_tr(file, label, split_set):
+    global FIRST_OBJECT
+    OBJECT_INDEX = file.split('.')[0].split('_')[-1]
+    VIEW_INDEX = 0
+    filepath = os.path.join(DATA_PATH, label, split_set, file)
+
+    mesh = io.read_triangle_mesh(filepath)
+    mesh.vertices = normalize3d(mesh.vertices)
+    mesh.compute_vertex_normals()
+
+    if args.debug:
+        print(f"[DEBUG] Current Object: {file}")
+
+    rotations = []
+    for j in range(0, N_VIEWS_H):
+        for i in range(N_VIEWS_W):
+            # Excluding 'rings' on 0 and 180 degrees since it would be the same projection but rotated
+            rotations.append((-(j + 1) * np.pi / (N_VIEWS_H + 1), 0, i * 2 * np.pi / N_VIEWS_W))
+    last_rotation = (0, 0, 0)
+    for rot in rotations:
+        nonblocking_custom_capture(mesh, rot, last_rotation)
+        VIEW_INDEX = VIEW_INDEX + 1
+        last_rotation = rot
+
+    data_label = []
+    data_code = []
+    data_x = []
+    data_y = []
+    entropy = []
+    data_index = []
+
+    for filename in os.listdir(TMP_DIR):
+        if "png" in filename:  # skip auto-generated .DS_Store
+            if "night_stand" in filename:
+                data_label.append("night_stand")
+                data_y.append(float((filename.split("_")[-1]).split(".")[0]))
+                data_x.append(float((filename.split("_")[-3]).split(".")[0]))
+                data_code.append(int((filename.split("_")[2])))
+                data_index.append(int(OBJECT_INDEX))
+                image = plt.imread(os.path.join(TMP_DIR, filename))
+                entropy.append(shannon_entropy(image))
+            else:
+                data_label.append(filename.split("_")[0])
+                data_y.append(float((filename.split("_")[-1]).split(".")[0]))
+                data_x.append(float((filename.split("_")[-3]).split(".")[0]))
+                data_code.append(int((filename.split("_")[1])))
+                data_index.append(int(OBJECT_INDEX))
+                image = plt.imread(os.path.join(TMP_DIR, filename))
+                entropy.append(shannon_entropy(image))
+
+    data = pd.DataFrame({"label": data_label,
+                            "obj_ind": data_index,
+                            "code": data_code,
+                            "rot_x": data_x,
+                            "rot_y": data_y,
+                            "entropy": entropy})
+    if FIRST_OBJECT == 1:  # Create the main DataFrame and csv, next ones will be appended
+        FIRST_OBJECT = 0
+        data.to_csv(os.path.join(OUT_DIR, "entropy_dataset.csv"), index=False)
+    else:
+        data.to_csv(os.path.join(OUT_DIR, "entropy_dataset.csv"), index=False, mode='a', header=False)
+
+    for im in os.listdir(TMP_DIR):
+        os.remove(os.path.join(TMP_DIR, im))
+
+
+
 for split_set in ['train', 'test']:
     print(split_set)
     for label in tqdm(labels, total=len(labels)):
@@ -115,69 +188,7 @@ for split_set in ['train', 'test']:
             if not file.endswith('off'):
                 files.remove(file)
 
-        for file in tqdm(files, total=len(files)):
-            OBJECT_INDEX = file.split('.')[0].split('_')[-1]
-            VIEW_INDEX = 0
-            filepath = os.path.join(DATA_PATH, label, split_set, file)
-
-            mesh = io.read_triangle_mesh(filepath)
-            mesh.vertices = normalize3d(mesh.vertices)
-            mesh.compute_vertex_normals()
-
-            if args.debug:
-                print(f"[DEBUG] Current Object: {file}")
-
-            rotations = []
-            for j in range(0, N_VIEWS_H):
-                for i in range(N_VIEWS_W):
-                    # Excluding 'rings' on 0 and 180 degrees since it would be the same projection but rotated
-                    rotations.append((-(j + 1) * np.pi / (N_VIEWS_H + 1), 0, i * 2 * np.pi / N_VIEWS_W))
-            last_rotation = (0, 0, 0)
-            for rot in rotations:
-                nonblocking_custom_capture(mesh, rot, last_rotation)
-                VIEW_INDEX = VIEW_INDEX + 1
-                last_rotation = rot
-
-            data_label = []
-            data_code = []
-            data_x = []
-            data_y = []
-            entropy = []
-            data_index = []
-
-            for filename in os.listdir(TMP_DIR):
-                if "png" in filename:  # skip auto-generated .DS_Store
-                    if "night_stand" in filename:
-                        data_label.append("night_stand")
-                        data_y.append(float((filename.split("_")[-1]).split(".")[0]))
-                        data_x.append(float((filename.split("_")[-3]).split(".")[0]))
-                        data_code.append(int((filename.split("_")[2])))
-                        data_index.append(int(OBJECT_INDEX))
-                        image = plt.imread(os.path.join(TMP_DIR, filename))
-                        entropy.append(shannon_entropy(image))
-                    else:
-                        data_label.append(filename.split("_")[0])
-                        data_y.append(float((filename.split("_")[-1]).split(".")[0]))
-                        data_x.append(float((filename.split("_")[-3]).split(".")[0]))
-                        data_code.append(int((filename.split("_")[1])))
-                        data_index.append(int(OBJECT_INDEX))
-                        image = plt.imread(os.path.join(TMP_DIR, filename))
-                        entropy.append(shannon_entropy(image))
-
-            data = pd.DataFrame({"label": data_label,
-                                 "obj_ind": data_index,
-                                 "code": data_code,
-                                 "rot_x": data_x,
-                                 "rot_y": data_y,
-                                 "entropy": entropy})
-            if FIRST_OBJECT == 1:  # Create the main DataFrame and csv, next ones will be appended
-                FIRST_OBJECT = 0
-                data.to_csv(os.path.join(OUT_DIR, "entropy_dataset.csv"), index=False)
-            else:
-                data.to_csv(os.path.join(OUT_DIR, "entropy_dataset.csv"), index=False, mode='a', header=False)
-
-            for im in os.listdir(TMP_DIR):
-                os.remove(os.path.join(TMP_DIR, im))
-
-
-os.rmdir(TMP_DIR)
+        # for file in tqdm(files, total=len(files)):
+        results = Parallel(n_jobs=MAX_THREAD)(delayed(run_tr)(file, label, split_set) for file in files)
+            
+# os.rmdir(TMP_DIR)
