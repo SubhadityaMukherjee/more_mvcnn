@@ -5,8 +5,12 @@ import shutil
 import datetime
 import open3d as o3d
 
-CLASSES = ['bathtub', 'bed', 'chair', 'desk', 'dresser',
-           'monitor', 'night_stand', 'sofa', 'table', 'toilet']
+# CLASSES = [
+    # 'bathtub', 'bed', 'chair', 'desk', 'dresser',
+        #    'monitor', 'night_stand', 'sofa', 'table', 'toilet'
+# ]
+CLASSES = ['glassBox', 'door', 'car', 'flowerPot', 'piano', 'wardrobe', 'table', 'monitor', 'mantel', 'keyboard', 'sink', 'bowl', 'laptop', 'xbox', 'airplane', 'tvStand', 'curtain', 'cup', 'night_stand', 'sofa', 'rangeHood', 'dresser', 'lamp', 'bench', 'guitar', 'person', 'bathtub', 'bookshelf', 'tent', 'radio', 'desk', 'cone', 'vase', 'stairs', 'plant', 'bottle', 'toilet', 'bed', 'stool', 'chair']
+CLASSES.sort()
 
 
 def normalize3d(vector):
@@ -69,32 +73,36 @@ def get_labels_from_object_views(data):
 
 
 def get_label_dict(inverse=False):
-    label2int = {'bathtub': 0,
-                 'bed': 1,
-                 'chair': 2,
-                 'desk': 3,
-                 'dresser': 4,
-                 'monitor': 5,
-                 'night_stand': 6,
-                 'sofa': 7,
-                 'table': 8,
-                 'toilet': 9}
+    # label2int = {'bathtub': 0,
+    #              'bed': 1,
+    #              'chair': 2,
+    #              'desk': 3,
+    #              'dresser': 4,
+    #              'monitor': 5,
+    #              'night_stand': 6,
+    #              'sofa': 7,
+    #              'table': 8,
+    #              'toilet': 9}
+    label2int = {x:id for id,x in enumerate(CLASSES)}
+    int2label = {id:x for id,x in enumerate(CLASSES)}
+    # print(label2int, int2label)
 
-    int2label = {0: 'bathtub',
-                 1: 'bed',
-                 2: 'chair',
-                 3: 'desk',
-                 4: 'dresser',
-                 5: 'monitor',
-                 6: 'night_stand',
-                 7: 'sofa',
-                 8: 'table',
-                 9: 'toilet'}
+    # int2label = {0: 'bathtub',
+    #              1: 'bed',
+    #              2: 'chair',
+    #              3: 'desk',
+    #              4: 'dresser',
+    #              5: 'monitor',
+    #              6: 'night_stand',
+    #              7: 'sofa',
+    #              8: 'table',
+    #              9: 'toilet'}
     if inverse:
         return int2label
     else:
         return label2int
 
+# get_label_dict()
 
 def get_datastamp():
     time = datetime.datetime.now()

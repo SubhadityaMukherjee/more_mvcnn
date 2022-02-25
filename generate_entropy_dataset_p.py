@@ -29,7 +29,8 @@ from skimage.measure import shannon_entropy
 import matplotlib.pyplot as plt
 import multiprocessing
 import subprocess
-MAX_THREAD = max(multiprocessing.cpu_count(),10) - 1
+# MAX_THREAD = max(multiprocessing.cpu_count(),10) - 1
+MAX_THREAD = 10
 print(MAX_THREAD)
 
 parser = argparse.ArgumentParser(description="Generates views regularly positioned on a sphere around the object.")
@@ -181,6 +182,7 @@ for label in tqdm(labels, total=len(labels)):
         if not filename.endswith('off'):
             files.remove(filename)
 
+    files = files[:100]
     results = Parallel(n_jobs=MAX_THREAD)(delayed(train)(filename, label) for filename in files)
 
 print("DONE WITH PART 1")

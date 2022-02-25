@@ -6,3 +6,6 @@ __pycache__
 .voxel_data/
 .voxel_data
 *.npy
+logs/
+logs
+*.tfrecord

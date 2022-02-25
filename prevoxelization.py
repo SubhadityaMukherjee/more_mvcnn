@@ -77,7 +77,7 @@ for cur in os.listdir(DATA_PATH):
         labels.append(cur)
 labels.sort()
 
-labels = labels[6::]
+# labels = labels[6::]
 
 if os.path.exists(VOX_DIR):
     import shutil
@@ -147,7 +147,6 @@ for label in tqdm(labels, total=len(labels)):
     files_test = os.listdir(os.path.join(DATA_PATH, label, "test"))
     files_train.sort()
     files_test.sort()
-    print(len(files_train), len(files_test))
     
     for file in files_train:
         if not file.endswith('off'):
@@ -155,7 +154,10 @@ for label in tqdm(labels, total=len(labels)):
     for file in files_test:
         if not file.endswith('off'):
             files_test.remove(file)
+
+    print(len(files_train), len(files_test))
+    files_train = files_train[:100]
     # results = Parallel(n_jobs=MAX_THREAD)(delayed(run_train)(file, label) for file in files_train)
 
     # results = Parallel(n_jobs=MAX_THREAD)(delayed(run_train)(file, label) for file in files_test)
-    results = parallel(partial(run_train, label = label), files_train, num_cpus = 10)
+    results = parallel(partial(run_train, label = label), files_train, num_cpus = 4)

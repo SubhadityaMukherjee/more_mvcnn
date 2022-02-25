@@ -16,6 +16,7 @@ from time import time
 from tqdm import tqdm
 from joblib import Parallel, delayed
 import multiprocessing
+from par import *
 import subprocess
 MAX_THREAD = max(multiprocessing.cpu_count(),10) - 1
 print(MAX_THREAD)
@@ -143,36 +144,39 @@ for cur in os.listdir(DATA_PATH):
         labels.append(cur)
 
 def train(filename, label):
-    start = time()
-    ViewData.obj_path = os.path.join(DATA_PATH, label, args.set, filename)
-    ViewData.obj_filename = filename
-    ViewData.obj_index = filename.split(".")[0].split("_")[-1]
-    ViewData.obj_label = filename.split(".")[0].replace("_" + ViewData.obj_index, '')
-    ViewData.view_index = 0
-    if args.verbose:
-        print(f"[INFO] Current object: {ViewData.obj_label}_{ViewData.obj_index}")
-        print(
-            f"[DEBUG] ViewData:\n [objpath: {ViewData.obj_path},\n filename: {ViewData.obj_filename},\n label: {ViewData.obj_label},\n index: {ViewData.obj_index}]")
-    mesh = io.read_triangle_mesh(ViewData.obj_path)
-    mesh.vertices = normalize3d(mesh.vertices)
-    mesh.compute_vertex_normals()
-
-    rotations = []
-    for j in range(0, N_VIEWS_H):
-        for i in range(N_VIEWS_W):
-            # Excluding 'rings' on 0 and 180 degrees since it would be the same projection but rotated
-            rotations.append((-(j + 1) * np.pi / (N_VIEWS_H + 1), 0, i * 2 * np.pi / N_VIEWS_W))
-    last_rotation = (0, 0, 0)
-    for rot in rotations:
-        nonblocking_custom_capture(mesh, rot, last_rotation)
-        ViewData.view_index += 1
+    try:
+        start = time()
+        ViewData.obj_path = os.path.join(DATA_PATH, label, args.set, filename)
+        ViewData.obj_filename = filename
+        ViewData.obj_index = filename.split(".")[0].split("_")[-1]
+        ViewData.obj_label = filename.split(".")[0].replace("_" + ViewData.obj_index, '')
+        ViewData.view_index = 0
         if args.verbose:
-            print(f"[INFO] Elaborating view {ViewData.view_index}/{N_VIEWS_W * N_VIEWS_H}...")
-        last_rotation = rot
+            print(f"[INFO] Current object: {ViewData.obj_label}_{ViewData.obj_index}")
+            print(
+                f"[DEBUG] ViewData:\n [objpath: {ViewData.obj_path},\n filename: {ViewData.obj_filename},\n label: {ViewData.obj_label},\n index: {ViewData.obj_index}]")
+        mesh = io.read_triangle_mesh(ViewData.obj_path)
+        mesh.vertices = normalize3d(mesh.vertices)
+        mesh.compute_vertex_normals()
 
-    end = time()
-    if args.verbose:
-        print(f"[INFO] Time to elaborate file {filename}: {end - start}")
+        rotations = []
+        for j in range(0, N_VIEWS_H):
+            for i in range(N_VIEWS_W):
+                # Excluding 'rings' on 0 and 180 degrees since it would be the same projection but rotated
+                rotations.append((-(j + 1) * np.pi / (N_VIEWS_H + 1), 0, i * 2 * np.pi / N_VIEWS_W))
+        last_rotation = (0, 0, 0)
+        for rot in rotations:
+            nonblocking_custom_capture(mesh, rot, last_rotation)
+            ViewData.view_index += 1
+            if args.verbose:
+                print(f"[INFO] Elaborating view {ViewData.view_index}/{N_VIEWS_W * N_VIEWS_H}...")
+            last_rotation = rot
+
+        end = time()
+        if args.verbose:
+            print(f"[INFO] Time to elaborate file {filename}: {end - start}")
+    except Exception as e:
+        print(e)
 
 
 for label in tqdm(labels, total=len(labels)):
@@ -181,5 +185,8 @@ for label in tqdm(labels, total=len(labels)):
     for filename in files:  # Removes file without .off extension
         if not filename.endswith('off'):
             files.remove(filename)
+    
+    files = files[:100]
 
-    results = Parallel(n_jobs=MAX_THREAD)(delayed(train)(filename, label) for filename in files)
+    # results = Parallel(n_jobs=MAX_THREAD)(delayed(train)(filename, label) for filename in files)
+    results = parallel(partial(train, label = label), files, 10)

@@ -21,7 +21,7 @@ parser.add_argument("--train_sample_ratio", type=float, default=10)
 parser.add_argument("--test_sample_ratio", type=float, default=10)
 parser.add_argument("-a", "--architecture", default="vgg",
                     choices=['efficientnet', 'vgg', 'mobilenet', 'mobilenetv2', 'vggm'])
-parser.add_argument("-o", "--out", default="./")
+parser.add_argument("-o", "--out", default="./logs/")
 parser.add_argument("--load_model")
 parser.add_argument("--lr")
 args = parser.parse_args()
@@ -50,6 +50,7 @@ for filename in TEST_FILES:
 np.random.shuffle(TEST_FILES)
 NUM_OBJECTS_TEST = len(TEST_FILES)
 TEST_FILTER = args.test_sample_ratio
+NO_CLASSES = len(os.listdir("/media/hdd/Datasets/ModelNet40/"))
 
 os.mkdir(MODEL_DIR)
 
@@ -102,7 +103,7 @@ def data_loader_train():
             label_class = TRAIN_FILES[idx].split("_")[0]
             if label_class == 'night':
                 label_class = 'night_stand'  # Quick fix for label parsing
-            label_class = utility.int_to_1hot(labels_dict[label_class], 10)
+            label_class = utility.int_to_1hot(labels_dict[label_class], NO_CLASSES)
             label_view = utility.int_to_1hot(int(TRAIN_FILES[idx].split("_")[-1].split(".")[0]), 60)
             yield np.resize(x, (224, 224, 3)), (label_class, label_view)
 
@@ -124,7 +125,7 @@ def data_loader_test():
             label_class = TEST_FILES[i].split("_")[0]
             if label_class == 'night':
                 label_class = 'night_stand'  # Quick fix for label parsing
-            label_class = utility.int_to_1hot(labels_dict[label_class], 10)
+            label_class = utility.int_to_1hot(labels_dict[label_class], NO_CLASSES)
             label_view = utility.int_to_1hot(int(TEST_FILES[i].split("_")[-1].split(".")[0]), 60)
             yield np.resize(x, (224, 224, 3)), (label_class, label_view)
 
@@ -133,7 +134,7 @@ def dataset_generator_train():
     dataset = tf.data.Dataset.from_generator(data_loader_train,
                                              output_types=(tf.float32, (tf.int16, tf.int16)),
                                              output_shapes=(tf.TensorShape([224, 224, 3]),
-                                                            (tf.TensorShape([10]), tf.TensorShape([60]))))
+                                                            (tf.TensorShape([NO_CLASSES]), tf.TensorShape([60]))))
     dataset = dataset.batch(BATCH_SIZE)
     dataset = dataset.repeat(EPOCHS)
     return dataset
@@ -143,7 +144,7 @@ def dataset_generator_test():
     dataset = tf.data.Dataset.from_generator(data_loader_test,
                                              output_types=(tf.float32, (tf.int16, tf.int16)),
                                              output_shapes=(tf.TensorShape([224, 224, 3]),
-                                                            (tf.TensorShape([10]), tf.TensorShape([60]))))
+                                                            (tf.TensorShape([NO_CLASSES]), tf.TensorShape([60]))))
     dataset = dataset.batch(BATCH_SIZE)
     dataset = dataset.repeat(EPOCHS)
     return dataset
@@ -225,7 +226,7 @@ def generate_cnn(app="vgg"):
     # x_view = layers.ReLU()(x_view)
     # x_view = keras.layers.Dropout(0.5)(x_view)
 
-    out_class = layers.Dense(10, activation='softmax', name="class")(x)
+    out_class = layers.Dense(NO_CLASSES, activation='softmax', name="class")(x)
     out_view = layers.Dense(60, activation='softmax', name="view")(x)
     model = keras.Model(inputs=inputs, outputs=[out_class, out_view])
     model.summary()
@@ -253,7 +254,7 @@ def main():
                         callbacks=CALLBACKS,
                         validation_data=test_data)
     hist_df = pd.DataFrame(history.history)
-    hist_df.to_csv(os.path.join(MODEL_DIR, f"{TIMESTAMP}_training_history.csv"))
+    hist_df.to_csv(os.path.join(MODEL_DIR, f"{TIMESTAMP}_{args.train_sample_ratio}_{args.test_sample_ratio}_training_history.csv"))
 
 
 if __name__ == '__main__':
