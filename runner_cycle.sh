@@ -7,7 +7,7 @@
 #SBATCH --nodes=3
 
 #module purge
-#module load Python 
+#module load Python Tensorflow
 python3 /home/s4747925/more_mvcnn/prevoxelization.py --modelnet10 /data/s4747925/data/ModelNet40
 
 singularity exec -B /data/s4747925/data/ /data/s4747925/data/open3d.sif "python3" 

@@ -11,6 +11,7 @@ from tensorflow import keras
 from tensorflow.keras import layers
 
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
+# keras.mixed_precision.set_global_policy("mixed_float16")
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--train_data")
@@ -79,7 +80,7 @@ CALLBACKS = [
         mode='min',
         save_best_only=True,
         save_freq='epoch'),
-    tf.keras.callbacks.TensorBoard(log_dir=os.path.join(MODEL_DIR, 'logs')),
+    tf.keras.callbacks.TensorBoard(log_dir=os.path.join(MODEL_DIR, 'logs'), update_freq =1),
     tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss',
                                          factor=0.5,
                                          patience=3,
@@ -147,6 +148,7 @@ def dataset_generator_test():
                                                             (tf.TensorShape([NO_CLASSES]), tf.TensorShape([60]))))
     dataset = dataset.batch(BATCH_SIZE)
     dataset = dataset.repeat(EPOCHS)
+
     return dataset
 
 
@@ -183,6 +185,14 @@ def generate_cnn(app="vgg"):
         net.trainable = False
         # preprocessed = keras.applications.mobilenet_v2.preprocess_input(inputs)
         x = net(inputs)
+    elif app == "xception":
+        net = keras.applications.Xception(include_top=False,
+                                             weights='imagenet',
+                                             )
+        net.trainable = False
+        # preprocessed = keras.applications.mobilenet_v2.preprocess_input(inputs)
+        x = net(inputs)
+
 
     elif app == "vggm":
         x = keras.layers.Conv2D(96, kernel_size=7, strides=2, padding='same', kernel_regularizer='l2')(inputs)

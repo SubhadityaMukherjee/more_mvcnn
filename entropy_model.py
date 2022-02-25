@@ -48,7 +48,7 @@ CALLBACKS = [
         mode='min',
         save_best_only=True,
         save_freq='epoch'),
-    tf.keras.callbacks.TensorBoard(log_dir=os.path.join(MODEL_DIR, 'logs/')),
+    tf.keras.callbacks.TensorBoard(log_dir=os.path.join(MODEL_DIR, 'logs'), update_freq =1),
     tf.keras.callbacks.CSVLogger(os.path.join(MODEL_DIR, 'logs/training_log.csv')),
     tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss',
                                          factor=0.3,
