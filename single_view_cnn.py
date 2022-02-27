@@ -10,8 +10,11 @@ import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
 
+print("Num GPUs Available: ", tf.config.list_physical_devices('GPU'))
+# exit(0)
+
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
-# keras.mixed_precision.set_global_policy("mixed_float16")
+keras.mixed_precision.set_global_policy("mixed_float16")
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--train_data")
@@ -19,12 +22,12 @@ parser.add_argument("--test_data")
 parser.add_argument("--batch_size", type=int, default=32)
 parser.add_argument("--epochs", type=int, default=3)
 parser.add_argument("--train_sample_ratio", type=float, default=10)
-parser.add_argument("--test_sample_ratio", type=float, default=10)
+parser.add_argument("--test_sample_ratio", type=float, default=30)
 parser.add_argument("-a", "--architecture", default="vgg",
-                    choices=['efficientnet', 'vgg', 'mobilenet', 'mobilenetv2', 'vggm'])
+                    choices=['efficientnet', 'vgg', 'mobilenet', 'mobilenetv2', 'vggm','xception'])
 parser.add_argument("-o", "--out", default="./logs/")
 parser.add_argument("--load_model")
-parser.add_argument("--lr")
+parser.add_argument("--lr", default=1e-4)
 args = parser.parse_args()
 
 EPOCHS = args.epochs
@@ -51,12 +54,14 @@ for filename in TEST_FILES:
 np.random.shuffle(TEST_FILES)
 NUM_OBJECTS_TEST = len(TEST_FILES)
 TEST_FILTER = args.test_sample_ratio
-NO_CLASSES = len(os.listdir("/media/hdd/Datasets/ModelNet40/"))
+# NO_CLASSES = len(os.listdir("/media/hdd/Datasets/ModelNet40/"))
+NO_CLASSES = len(os.listdir("/media/hdd/Datasets/ModelNet10/"))
 
 os.mkdir(MODEL_DIR)
 
 METRICS = [
     keras.metrics.CategoricalAccuracy(name='accuracy'),
+    keras.metrics.TopKCategoricalAccuracy(name = 'topk', k = 5),
     # keras.metrics.BinaryAccuracy(name='binary_accuracy'),
     # keras.metrics.Precision(name='precision'),
     # keras.metrics.Recall(name='recall'),
@@ -78,9 +83,8 @@ CALLBACKS = [
         filepath=os.path.join(MODEL_DIR, f'classification_model.h5'),
         monitor='val_loss',
         mode='min',
-        save_best_only=True,
-        save_freq='epoch'),
-    tf.keras.callbacks.TensorBoard(log_dir=os.path.join(MODEL_DIR, 'logs'), update_freq =1),
+        save_best_only=True),
+    tf.keras.callbacks.TensorBoard(log_dir=os.path.join(MODEL_DIR, 'logs'), update_freq =5),
     tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss',
                                          factor=0.5,
                                          patience=3,

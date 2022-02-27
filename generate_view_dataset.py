@@ -181,12 +181,12 @@ def train(filename, label):
 
 for label in tqdm(labels, total=len(labels)):
     files = os.listdir(os.path.join(DATA_PATH, label, args.set))
-    files.sort()
+    # files.sort()
     for filename in files:  # Removes file without .off extension
         if not filename.endswith('off'):
             files.remove(filename)
     
-    files = files[:100]
+    files = files[:400]
 
     # results = Parallel(n_jobs=MAX_THREAD)(delayed(train)(filename, label) for filename in files)
     results = parallel(partial(train, label = label), files, 10)
