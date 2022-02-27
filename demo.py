@@ -15,11 +15,18 @@ import cv2
 import open3d
 import pandas as pd
 import tensorflow as tf
+import time
 from tensorflow import keras
 import utility
 from skimage.feature import peak_local_max
 from skimage.measure import shannon_entropy
 import matplotlib.pyplot as plt
+
+
+
+import os
+os.environ["CUDA_VISIBLE_DEVICES"]="0" #predict on cpu
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--data')
@@ -28,6 +35,7 @@ parser.add_argument("--classifier_model")
 args = parser.parse_args()
 TMP_DIR = os.path.join(sys.path[0], "tmp")
 
+keras.mixed_precision.set_global_policy("mixed_float16")
 
 class ViewData:
     obj_label = ''
@@ -97,7 +105,7 @@ def classify(off_file, entropy_model, classifier):
         mask[vox.grid_index[0], vox.grid_index[1], vox.grid_index[2]] = 1
     mask = np.pad(mask, 3, 'constant')
     mask = np.resize(mask, (1, mask.shape[0], mask.shape[1], mask.shape[2], 1))
-    pred_entropies = entropy_model.predict(mask)
+    pred_entropies = entropy_model.predict(mask.astype(np.float16))
     pred_entropies = np.resize(pred_entropies, (5, 12))
     coords = peak_local_max(pred_entropies, min_distance=1, exclude_border=False)
     peak_views = []
@@ -116,7 +124,7 @@ def classify(off_file, entropy_model, classifier):
 
     plt.xticks([i for i in range(12)], [i * 30 for i in range(12)])
     plt.yticks([i for i in range(5)], [(i + 1) * 30 for i in range(5)])
-    plt.show()
+    # plt.show()
 
     # print(f"[DEBUG] peak_views : {np.shape(peak_views)}")
     print(f"[DEBUG] peak_views : {peak_views}")
@@ -154,9 +162,11 @@ def classify(off_file, entropy_model, classifier):
             views.append((theta, phi))
 
     views_images = np.array(views_images)
-    plt.show()
-
-    results = classifier.predict(views_images)
+    # plt.show()
+    t1 = time.time()
+    results = classifier.predict(views_images.astype(np.float16))
+    t2 = time.time()
+    print(f"TIME TAKEN: {t2-t1}")
     labels = results[0]
     pred_views = results[1]
     for im in os.listdir(TMP_DIR):

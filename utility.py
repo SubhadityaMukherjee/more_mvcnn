@@ -5,10 +5,10 @@ import shutil
 import datetime
 import open3d as o3d
 
-# CLASSES = [
-#     'bathtub', 'bed', 'chair', 'desk', 'dresser',
-#            'monitor', 'night_stand', 'sofa', 'table', 'toilet'
-# ]
+CLASSES = [
+    'bathtub', 'bed', 'chair', 'desk', 'dresser',
+           'monitor', 'night_stand', 'sofa', 'table', 'toilet'
+]
 # CLASSES = ['glassBox', 'door', 'car', 'flowerPot', 'piano', 'wardrobe', 'table', 'monitor', 'mantel', 'keyboard', 'sink', 'bowl', 'laptop', 'xbox', 'airplane', 'tvStand', 'curtain', 'cup', 'night_stand', 'sofa', 'rangeHood', 'dresser', 'lamp', 'bench', 'guitar', 'person', 'bathtub', 'bookshelf', 'tent', 'radio', 'desk', 'cone', 'vase', 'stairs', 'plant', 'bottle', 'toilet', 'bed', 'stool', 'chair']
 CLASSES.sort()
 
