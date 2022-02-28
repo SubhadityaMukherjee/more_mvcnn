@@ -1,14 +1,15 @@
+from tensorflow.keras import layers
+from tensorflow import keras
+import tensorflow as tf
+import utility
+import cv2
+import numpy as np
+import pandas as pd
+import argparse
 import os
+from unicodedata import name
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-import argparse
-import pandas as pd
-import numpy as np
-import cv2
-import utility
-import tensorflow as tf
-from tensorflow import keras
-from tensorflow.keras import layers
 
 print("Num GPUs Available: ", tf.config.list_physical_devices('GPU'))
 # exit(0)
@@ -24,16 +25,19 @@ parser.add_argument("--epochs", type=int, default=3)
 parser.add_argument("--train_sample_ratio", type=float, default=10)
 parser.add_argument("--test_sample_ratio", type=float, default=30)
 parser.add_argument("-a", "--architecture", default="vgg",
-                    choices=['efficientnet', 'vgg', 'mobilenet', 'mobilenetv2', 'vggm','xception'])
+                    choices=['efficientnet', 'vgg', 'mobilenet', 'mobilenetv2', 'vggm', 'xception'])
 parser.add_argument("-o", "--out", default="./logs/")
 parser.add_argument("--load_model")
 parser.add_argument("--lr", default=1e-4)
+parser.add_argument("--name")
+parser.add_argument("--modeln", default="modelnet10")
 args = parser.parse_args()
 
 EPOCHS = args.epochs
 BATCH_SIZE = args.batch_size
 TIMESTAMP = utility.get_datastamp()
-MODEL_DIR = os.path.join(args.out, f"{args.architecture}-{TIMESTAMP}")
+MODEL_DIR = os.path.join(
+    args.out, f"{args.architecture}-{TIMESTAMP}-{args.name}")
 
 print("[INFO] Processing training data..")
 TRAIN_DATA_PATH = args.train_data
@@ -54,14 +58,25 @@ for filename in TEST_FILES:
 np.random.shuffle(TEST_FILES)
 NUM_OBJECTS_TEST = len(TEST_FILES)
 TEST_FILTER = args.test_sample_ratio
-# NO_CLASSES = len(os.listdir("/media/hdd/Datasets/ModelNet40/"))
-NO_CLASSES = len(os.listdir("/media/hdd/Datasets/ModelNet10/"))
+if args.modeln == "modelnet40":
+    NO_CLASSES = len(os.listdir("/media/hdd/Datasets/ModelNet40/"))
+    labels_dict = utility.get_label_dict(CLASSES=[
+'glassBox', 'door', 'car', 'flowerPot', 'piano', 'wardrobe', 'table', 'monitor', 'mantel', 'keyboard', 'sink', 'bowl', 'laptop', 'xbox', 'airplane', 'tvStand', 'curtain', 'cup', 'night_stand', 'sofa', 'rangeHood', 'dresser', 'lamp', 'bench', 'guitar', 'person', 'bathtub', 'bookshelf', 'tent', 'radio', 'desk', 'cone', 'vase', 'stairs', 'plant', 'bottle', 'toilet', 'bed', 'stool', 'chair'
+    ]
+    )
+else:
+    NO_CLASSES = len(os.listdir("/media/hdd/Datasets/ModelNet10/"))
+    labels_dict = utility.get_label_dict(CLASSES=[
+        'bathtub', 'bed', 'chair', 'desk', 'dresser',
+        'monitor', 'night_stand', 'sofa', 'table', 'toilet'
+    ]
+    )
 
 os.mkdir(MODEL_DIR)
 
 METRICS = [
     keras.metrics.CategoricalAccuracy(name='accuracy'),
-    keras.metrics.TopKCategoricalAccuracy(name = 'topk', k = 5),
+    keras.metrics.TopKCategoricalAccuracy(name='topk', k=5),
     # keras.metrics.BinaryAccuracy(name='binary_accuracy'),
     # keras.metrics.Precision(name='precision'),
     # keras.metrics.Recall(name='recall'),
@@ -84,7 +99,8 @@ CALLBACKS = [
         monitor='val_loss',
         mode='min',
         save_best_only=True),
-    tf.keras.callbacks.TensorBoard(log_dir=os.path.join(MODEL_DIR, 'logs'), update_freq =5),
+    tf.keras.callbacks.TensorBoard(
+        log_dir=os.path.join(MODEL_DIR, 'logs'), update_freq=5),
     tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss',
                                          factor=0.5,
                                          patience=3,
@@ -97,7 +113,7 @@ CALLBACKS = [
 
 
 def data_loader_train():
-    labels_dict = utility.get_label_dict()
+    # labels_dict = utility.get_label_dict()
     for i in range(NUM_OBJECTS_TRAIN):
         if i % TRAIN_FILTER == 0:
             idx = np.random.randint(0, NUM_OBJECTS_TRAIN)
@@ -108,13 +124,15 @@ def data_loader_train():
             label_class = TRAIN_FILES[idx].split("_")[0]
             if label_class == 'night':
                 label_class = 'night_stand'  # Quick fix for label parsing
-            label_class = utility.int_to_1hot(labels_dict[label_class], NO_CLASSES)
-            label_view = utility.int_to_1hot(int(TRAIN_FILES[idx].split("_")[-1].split(".")[0]), 60)
+            label_class = utility.int_to_1hot(
+                labels_dict[label_class], NO_CLASSES)
+            label_view = utility.int_to_1hot(
+                int(TRAIN_FILES[idx].split("_")[-1].split(".")[0]), 60)
             yield np.resize(x, (224, 224, 3)), (label_class, label_view)
 
 
 def data_loader_test():
-    labels_dict = utility.get_label_dict()
+    # labels_dict = utility.get_label_dict()
     for i in range(NUM_OBJECTS_TEST):
         if i % TEST_FILTER == 0:
             # idx = np.random.randint(0, NUM_OBJECTS_TEST)  # Remove randomization in sampling to stabilize validation
@@ -130,14 +148,17 @@ def data_loader_test():
             label_class = TEST_FILES[i].split("_")[0]
             if label_class == 'night':
                 label_class = 'night_stand'  # Quick fix for label parsing
-            label_class = utility.int_to_1hot(labels_dict[label_class], NO_CLASSES)
-            label_view = utility.int_to_1hot(int(TEST_FILES[i].split("_")[-1].split(".")[0]), 60)
+            label_class = utility.int_to_1hot(
+                labels_dict[label_class], NO_CLASSES)
+            label_view = utility.int_to_1hot(
+                int(TEST_FILES[i].split("_")[-1].split(".")[0]), 60)
             yield np.resize(x, (224, 224, 3)), (label_class, label_view)
 
 
 def dataset_generator_train():
     dataset = tf.data.Dataset.from_generator(data_loader_train,
-                                             output_types=(tf.float32, (tf.int16, tf.int16)),
+                                             output_types=(
+                                                 tf.float32, (tf.int16, tf.int16)),
                                              output_shapes=(tf.TensorShape([224, 224, 3]),
                                                             (tf.TensorShape([NO_CLASSES]), tf.TensorShape([60]))))
     dataset = dataset.batch(BATCH_SIZE)
@@ -147,7 +168,8 @@ def dataset_generator_train():
 
 def dataset_generator_test():
     dataset = tf.data.Dataset.from_generator(data_loader_test,
-                                             output_types=(tf.float32, (tf.int16, tf.int16)),
+                                             output_types=(
+                                                 tf.float32, (tf.int16, tf.int16)),
                                              output_shapes=(tf.TensorShape([224, 224, 3]),
                                                             (tf.TensorShape([NO_CLASSES]), tf.TensorShape([60]))))
     dataset = dataset.batch(BATCH_SIZE)
@@ -191,31 +213,35 @@ def generate_cnn(app="vgg"):
         x = net(inputs)
     elif app == "xception":
         net = keras.applications.Xception(include_top=False,
-                                             weights='imagenet',
-                                             )
+                                          weights='imagenet',
+                                          )
         net.trainable = False
         # preprocessed = keras.applications.mobilenet_v2.preprocess_input(inputs)
         x = net(inputs)
 
-
     elif app == "vggm":
-        x = keras.layers.Conv2D(96, kernel_size=7, strides=2, padding='same', kernel_regularizer='l2')(inputs)
+        x = keras.layers.Conv2D(
+            96, kernel_size=7, strides=2, padding='same', kernel_regularizer='l2')(inputs)
         x = layers.LeakyReLU()(x)
         x = keras.layers.BatchNormalization()(x)
         x = keras.layers.MaxPool2D(pool_size=3, strides=2)(x)
         x = keras.layers.Dropout(0.5)(x)
-        x = keras.layers.Conv2D(256, kernel_size=5, strides=2, padding='same', kernel_regularizer='l2')(x)
+        x = keras.layers.Conv2D(
+            256, kernel_size=5, strides=2, padding='same', kernel_regularizer='l2')(x)
         x = layers.LeakyReLU()(x)
         x = keras.layers.BatchNormalization()(x)
         x = keras.layers.MaxPool2D(pool_size=3, strides=2)(x)
         x = keras.layers.Dropout(0.5)(x)
-        x = keras.layers.Conv2D(512, kernel_size=3, strides=1, padding='same', kernel_regularizer='l2')(x)
+        x = keras.layers.Conv2D(
+            512, kernel_size=3, strides=1, padding='same', kernel_regularizer='l2')(x)
         x = layers.LeakyReLU()(x)
         x = keras.layers.Dropout(0.5)(x)
-        x = keras.layers.Conv2D(512, kernel_size=3, strides=1, padding='same', kernel_regularizer='l2')(x)
+        x = keras.layers.Conv2D(
+            512, kernel_size=3, strides=1, padding='same', kernel_regularizer='l2')(x)
         x = layers.LeakyReLU()(x)
         x = keras.layers.Dropout(0.5)(x)
-        x = keras.layers.Conv2D(512, kernel_size=3, strides=1, padding='same', kernel_regularizer='l2')(x)
+        x = keras.layers.Conv2D(
+            512, kernel_size=3, strides=1, padding='same', kernel_regularizer='l2')(x)
         x = layers.LeakyReLU()(x)
         x = keras.layers.MaxPool2D(pool_size=3, strides=2)(x)
         x = keras.layers.Dropout(0.5)(x)
@@ -246,7 +272,8 @@ def generate_cnn(app="vgg"):
     model.summary()
     losses = {"class": 'categorical_crossentropy',
               "view": 'categorical_crossentropy'}
-    model.compile(keras.optimizers.Adam(learning_rate=float(args.lr)), loss=losses, metrics=METRICS)
+    model.compile(keras.optimizers.Adam(
+        learning_rate=float(args.lr)), loss=losses, metrics=METRICS)
     # keras.utils.plot_model(model, "net_structure.png", show_shapes=True, expand_nested=True)
     return model
 
@@ -266,9 +293,11 @@ def main():
                         batch_size=BATCH_SIZE,
                         epochs=EPOCHS,
                         callbacks=CALLBACKS,
-                        validation_data=test_data)
+                        validation_data=test_data,
+                        )
     hist_df = pd.DataFrame(history.history)
-    hist_df.to_csv(os.path.join(MODEL_DIR, f"{TIMESTAMP}_{args.train_sample_ratio}_{args.test_sample_ratio}_training_history.csv"))
+    hist_df.to_csv(os.path.join(
+        MODEL_DIR, f"{TIMESTAMP}_{args.train_sample_ratio}_{args.test_sample_ratio}_training_history.csv"))
 
 
 if __name__ == '__main__':
