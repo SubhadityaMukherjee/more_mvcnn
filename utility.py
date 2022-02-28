@@ -4,12 +4,20 @@ import os
 import shutil
 import datetime
 import open3d as o3d
+import copy
 
 def normalize3d(vector):
     np_arr = np.asarray(vector)
     max_val = np.max(np_arr)
     np_normalized = np_arr / max_val
     return o3d.utility.Vector3dVector(np_normalized)
+
+def apply_noise(pcd, mu = 0.0, sigma= 1):
+    noisy_pcd = copy.deepcopy(pcd)
+    points = np.asarray(noisy_pcd.points)
+    points += np.random.normal(mu, sigma, size=points.shape)
+    noisy_pcd.points = o3d.utility.Vector3dVector(points)
+    return noisy_pcd
 
 
 def int_to_1hot(n, dim):

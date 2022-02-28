@@ -44,21 +44,23 @@
 
 
 # 10, 20 : ModelNet10
-BTS=512
-EPOCHS=10
-python3 single_view_cnn.py --train_data=data/view-dataset-train-m10/image/ --test_data=data/view-dataset-test-m10/image/ --batch_size=$BTS --epochs=$EPOCHS --architecture="mobilenetv2" --name "m10_mobilenetv2_1_10" --train_sample_ratio 10 --test_sample_ratio 100
-python3 single_view_cnn.py --train_data=data/view-dataset-train-m10/image/ --test_data=data/view-dataset-test-m10/image/ --batch_size=$BTS --epochs=$EPOCHS --architecture="mobilenetv2" --name "m10_mobilenetv2_1_20" --train_sample_ratio 10 --test_sample_ratio 200
-
-python3 single_view_cnn.py --train_data=data/view-dataset-train/image/ --test_data=data/view-dataset-test/image/ --batch_size=$BTS --epochs=$EPOCHS --architecture="mobilenet" --name "m40_mobilenet_1_10" --train_sample_ratio 10 --test_sample_ratio 100 --modeln "modelnet40"
-python3 single_view_cnn.py --train_data=data/view-dataset-train/image/ --test_data=data/view-dataset-test/image/ --batch_size=$BTS --epochs=$EPOCHS --architecture="mobilenet" --name "m40_mobilenet_1_20" --train_sample_ratio 10 --test_sample_ratio 200 --modeln "modelnet40"
-
-BTS=128
-python3 single_view_cnn.py --train_data=data/view-dataset-train-m10/image/ --test_data=data/view-dataset-test-m10/image/ --batch_size=$BTS --epochs=$EPOCHS --architecture="vgg" --name "m10_vgg_1_10" --train_sample_ratio 10 --test_sample_ratio 100
-python3 single_view_cnn.py --train_data=data/view-dataset-train-m10/image/ --test_data=data/view-dataset-test-m10/image/ --batch_size=$BTS --epochs=$EPOCHS --architecture="vgg" --name "m10_vgg_1_20" --train_sample_ratio 10 --test_sample_ratio 200
-
-python3 single_view_cnn.py --train_data=data/view-dataset-train/image/ --test_data=data/view-dataset-test/image/ --batch_size=$BTS --epochs=$EPOCHS --architecture="vgg" --name "m40_vgg_1_10" --train_sample_ratio 10 --test_sample_ratio 100 --modeln "modelnet40"
-python3 single_view_cnn.py --train_data=data/view-dataset-train/image/ --test_data=data/view-dataset-test/image/ --batch_size=$BTS --epochs=$EPOCHS --architecture="vgg" --name "m40_vgg_1_20" --train_sample_ratio 10 --test_sample_ratio 200 --modeln "modelnet40"
-
 # BTS=512
-# EPOCHS=230
+# EPOCHS=10
+# python3 single_view_cnn.py --train_data=data/view-dataset-train-m10/image/ --test_data=data/view-dataset-test-m10/image/ --batch_size=$BTS --epochs=$EPOCHS --architecture="mobilenetv2" --name "m10_mobilenetv2_1_10" --train_sample_ratio 10 --test_sample_ratio 100
 # python3 single_view_cnn.py --train_data=data/view-dataset-train-m10/image/ --test_data=data/view-dataset-test-m10/image/ --batch_size=$BTS --epochs=$EPOCHS --architecture="mobilenetv2" --name "m10_mobilenetv2_1_20" --train_sample_ratio 10 --test_sample_ratio 200
+
+# python3 single_view_cnn.py --train_data=data/view-dataset-train/image/ --test_data=data/view-dataset-test/image/ --batch_size=$BTS --epochs=$EPOCHS --architecture="mobilenet" --name "m40_mobilenet_1_10" --train_sample_ratio 10 --test_sample_ratio 100 --modeln "modelnet40"
+# python3 single_view_cnn.py --train_data=data/view-dataset-train/image/ --test_data=data/view-dataset-test/image/ --batch_size=$BTS --epochs=$EPOCHS --architecture="mobilenet" --name "m40_mobilenet_1_20" --train_sample_ratio 10 --test_sample_ratio 200 --modeln "modelnet40"
+
+# BTS=128
+# python3 single_view_cnn.py --train_data=data/view-dataset-train-m10/image/ --test_data=data/view-dataset-test-m10/image/ --batch_size=$BTS --epochs=$EPOCHS --architecture="vgg" --name "m10_vgg_1_10" --train_sample_ratio 10 --test_sample_ratio 100
+# python3 single_view_cnn.py --train_data=data/view-dataset-train-m10/image/ --test_data=data/view-dataset-test-m10/image/ --batch_size=$BTS --epochs=$EPOCHS --architecture="vgg" --name "m10_vgg_1_20" --train_sample_ratio 10 --test_sample_ratio 200
+
+# python3 single_view_cnn.py --train_data=data/view-dataset-train/image/ --test_data=data/view-dataset-test/image/ --batch_size=$BTS --epochs=$EPOCHS --architecture="vgg" --name "m40_vgg_1_10" --train_sample_ratio 10 --test_sample_ratio 100 --modeln "modelnet40"
+# python3 single_view_cnn.py --train_data=data/view-dataset-train/image/ --test_data=data/view-dataset-test/image/ --batch_size=$BTS --epochs=$EPOCHS --architecture="vgg" --name "m40_vgg_1_20" --train_sample_ratio 10 --test_sample_ratio 200 --modeln "modelnet40"
+
+
+# Deformed Test set
+
+
+export MESA_LOADER_DRIVER_OVERRIDE=i965;python3 generate_view_dataset_deformed.py --modelnet10 /media/hdd/Datasets/ModelNet10 --set test --out data/ -x 5 -y 3
