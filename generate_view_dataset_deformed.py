@@ -7,6 +7,7 @@ spaced vertically on a sphere around the object.
 """
 
 import argparse
+from itsdangerous import exc
 from open3d import *
 import open3d as o3d
 import numpy as np
@@ -24,6 +25,9 @@ print(MAX_THREAD)
 
 parser = argparse.ArgumentParser(description="Generates views regularly positioned on a sphere around the object.")
 parser.add_argument("--modelnet10", help="Specify root directory to the ModelNet10 dataset.")
+parser.add_argument("--mname")
+parser.add_argument("--sigma", default=None)
+parser.add_argument("--voxsize", default=None)
 parser.add_argument("--set", help="Subdirectory: 'train' or 'test'.", default='train')
 parser.add_argument("--save_depth", help="Add to also save the correspondent depth-views dataset.", action='store_true')
 parser.add_argument("--out", help="Select a desired output directory.", default=".")
@@ -45,11 +49,22 @@ parser.add_argument("-y", "--vertical_split", help="Number of horizontal rings. 
                     type=int
                     )
 args = parser.parse_args()
+try:
+    args.voxsize = float(args.voxsize)
+except TypeError:
+    pass
+try:
+    args.sigma = float(args.sigma)
+except TypeError:
+    pass
 
 BASE_DIR = sys.path[0]
 print(BASE_DIR)
-OUT_DIR = os.path.join(BASE_DIR, args.out, f'view-dataset-deformed-{args.set}')
-DATA_PATH = os.path.join(BASE_DIR, args.modelnet10)
+OUT_DIR = os.path.join(BASE_DIR, args.out, f'view-dataset-deformed')
+if args.mname == "modelnet10":
+    DATA_PATH = os.path.join(BASE_DIR, args.modelnet10)
+else:
+    DATA_PATH = os.path.join(BASE_DIR, args.modelnet40)
 IMAGE_WIDTH = 224
 IMAGE_HEIGHT = 224
 N_VIEWS_W = args.horizontal_split
@@ -162,24 +177,7 @@ def train(filename, label):
         mesh.vertices = normalize3d(mesh.vertices)
 
         # sigma = np.random.choice([0.0,0.3, 0.6, 0.9],p = [.25, .25, .25, .25])
-        sigma = np.random.choice([0.0,3.0, 6.0, 9.0],p = [.25, .25, .25, .25])
-        vox_size = np.random.choice([1.0,0.01, 0.05, 0.1],p = [.25, .25, .25, .25])
-        choose_deform = random.choices([None, "noise", "downsample"], weights = [.3, .3, .3])
-
-        # print(choose_deform)
-        if choose_deform != None:
-            # verts = np.asarray(mesh.get_non_manifold_vertices())
-            pcl = o3d.geometry.PointCloud(
-            points=o3d.utility.Vector3dVector(mesh.vertices))
-            # pcl = mesh.sample_points_uniformly(vox_size * len(mesh.vertices))
-        if choose_deform == "noise":
-            pcl = apply_noise(pcl, sigma)
-            mesh = o3d.geometry.TriangleMesh.create_from_point_cloud_alpha_shape(pcl, .01)
-        elif choose_deform == "downsample":
-            pcl = pcl.voxel_down_sample(voxel_size = vox_size)
-            mesh = o3d.geometry.TriangleMesh.create_from_point_cloud_alpha_shape(pcl, .01)
-
-
+      
         mesh.compute_vertex_normals()
         rotations = []
         for j in range(0, N_VIEWS_H):
@@ -188,6 +186,28 @@ def train(filename, label):
                 rotations.append((-(j + 1) * np.pi / (N_VIEWS_H + 1), 0, i * 2 * np.pi / N_VIEWS_W))
         last_rotation = (0, 0, 0)
         for rot in rotations:
+            # sigma = np.random.choice([0.0,3.0, 6.0, 9.0],p = [.25, .25, .25, .25])
+            # vox_size = np.random.choice([1.0,0.01, 0.05, 0.1],p = [.25, .25, .25, .25])
+            # choose_deform = random.choices([None, "noise", "downsample"], weights = [.3, .3, .3])
+            if args.sigma != None:
+                choose_deform = "noise"
+            if args.voxsize != None:
+                choose_deform = "downsample"
+
+            # print(choose_deform)
+            if choose_deform != None:
+                # verts = np.asarray(mesh.get_non_manifold_vertices())
+                pcl = o3d.geometry.PointCloud(
+                points=o3d.utility.Vector3dVector(mesh.vertices))
+                # pcl = mesh.sample_points_uniformly(vox_size * len(mesh.vertices))
+            if choose_deform == "noise":
+                pcl = apply_noise(pcl, args.sigma)
+                mesh = o3d.geometry.TriangleMesh.create_from_point_cloud_alpha_shape(pcl, .1)
+            elif choose_deform == "downsample":
+                pcl = pcl.voxel_down_sample(voxel_size = args.voxsize)
+                mesh = o3d.geometry.TriangleMesh.create_from_point_cloud_alpha_shape(pcl, 2)
+
+
             nonblocking_custom_capture(mesh, rot, last_rotation)
             ViewData.view_index += 1
             if args.verbose:

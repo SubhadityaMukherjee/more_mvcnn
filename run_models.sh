@@ -62,5 +62,22 @@
 
 # Deformed Test set
 
+#voxsize 0.2 0.4 0.6 0.8
+EPOCHS=1
+BTS=512
 
-export MESA_LOADER_DRIVER_OVERRIDE=i965;python3 generate_view_dataset_deformed.py --modelnet10 /media/hdd/Datasets/ModelNet10 --set test --out data/ -x 5 -y 3
+rm -rf data/view-dataset-deformed/image/*
+VOXSIZE=0.2
+export MESA_LOADER_DRIVER_OVERRIDE=i965;python3 generate_view_dataset_deformed.py --modelnet10 /media/hdd/Datasets/ModelNet10 --set test --out data/ -x 5 -y 3 --mname "modelnet10" --voxsize $VOXSIZE
+# python3 single_view_cnn.py --train_data=data/view-dataset-train-m10/image/ --test_data=data/view-dataset-deformed/image/ --batch_size=$BTS --epochs=$EPOCHS --architecture="mobilenetv2" --name "m10_mobilenetv2_vox_$VOXSIZE" --train_sample_ratio 10 --test_sample_ratio 10 --load_model "/media/hdd/github/more_mvcnn/logs/mobilenetv2-27-Feb-233844-m10_mobilenetv2_1_1/classification_model.h5"
+# python3 single_view_cnn.py --train_data=data/view-dataset-train-m10/image/ --test_data=data/view-dataset-deformed/image/ --batch_size=$BTS --epochs=$EPOCHS --architecture="mobilenetv2" --name "m10_vgg_vox_$VOXSIZE" --train_sample_ratio 10 --test_sample_ratio 10 --load_model "/media/hdd/github/more_mvcnn/logs/vgg-28-Feb-033836-m10_vgg_1_10/classification_model.h5"
+
+rm -rf data/view-dataset-deformed/image/*
+
+# rm -rf data/view-dataset-deformed/image/*
+# SIGMA=2.0
+# export MESA_LOADER_DRIVER_OVERRIDE=i965;python3 generate_view_dataset_deformed.py --modelnet10 /media/hdd/Datasets/ModelNet10 --set test --out data/ -x 5 -y 3 --mname "modelnet10" --sigma 2.0
+# python3 single_view_cnn.py --train_data=data/view-dataset-train-m10/image/ --test_data=data/view-dataset-deformed/image/ --batch_size=$BTS --epochs=$EPOCHS --architecture="mobilenetv2" --name "m10_mobilenetv2_sig_$SIGMA" --train_sample_ratio 10 --test_sample_ratio 10 --load_model "/media/hdd/github/more_mvcnn/logs/mobilenetv2-27-Feb-233844-m10_mobilenetv2_1_1/classification_model.h5"
+# python3 single_view_cnn.py --train_data=data/view-dataset-train-m10/image/ --test_data=data/view-dataset-deformed/image/ --batch_size=$BTS --epochs=$EPOCHS --architecture="mobilenetv2" --name "m10_vgg_sig_$SIGMA" --train_sample_ratio 10 --test_sample_ratio 10 --load_model "/media/hdd/github/more_mvcnn/logs/vgg-28-Feb-033836-m10_vgg_1_10/classification_model.h5"
+
+# rm -rf data/view-dataset-deformed/image/*
