@@ -186,7 +186,7 @@ for label in tqdm(labels, total=len(labels)):
         if not filename.endswith('off'):
             files.remove(filename)
     
-    files = files[:400]
+    files = files[:200]
 
     # results = Parallel(n_jobs=MAX_THREAD)(delayed(train)(filename, label) for filename in files)
     results = parallel(partial(train, label = label), files, 10)

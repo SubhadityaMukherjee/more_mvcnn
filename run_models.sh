@@ -64,20 +64,33 @@
 
 #voxsize 0.2 0.4 0.6 0.8
 EPOCHS=1
-BTS=512
+declare -a voxar=(0.02 0.04 0.06 0.08 0.10)
+for VOXSIZE in "${voxar[@]}"
+do
+    rm -rf data/view-dataset-deformed/image/
+    export MESA_LOADER_DRIVER_OVERRIDE=i965;python3 generate_view_dataset_deformed.py --modelnet10 /media/hdd/Datasets/ModelNet10 --set test --out data/ --mname "modelnet10" --voxsize $VOXSIZE
+    BTS=512
+    python3 single_view_cnn.py --train_data=data/view-dataset-train-m10/image/ --test_data=data/view-dataset-deformed/image/ --batch_size=$BTS --epochs=$EPOCHS --architecture="mobilenetv2" --name "m10_mobilenetv2_vox_$VOXSIZE" --train_sample_ratio 100 --test_sample_ratio 10 --load_model "/media/hdd/github/more_mvcnn/logs/mobilenetv2-27-Feb-233844-m10_mobilenetv2_1_1/classification_model.h5"
+    BTS=128
+    python3 single_view_cnn.py --train_data=data/view-dataset-train-m10/image/ --test_data=data/view-dataset-deformed/image/ --batch_size=$BTS --epochs=$EPOCHS --architecture="vgg" --name "m10_vgg_vox_$VOXSIZE" --train_sample_ratio 10 --test_sample_ratio 10 --load_model "/media/hdd/github/more_mvcnn/logs/vgg-28-Feb-033836-m10_vgg_1_10/classification_model.h5"
 
-rm -rf data/view-dataset-deformed/image/*
-VOXSIZE=0.2
-export MESA_LOADER_DRIVER_OVERRIDE=i965;python3 generate_view_dataset_deformed.py --modelnet10 /media/hdd/Datasets/ModelNet10 --set test --out data/ -x 5 -y 3 --mname "modelnet10" --voxsize $VOXSIZE
-# python3 single_view_cnn.py --train_data=data/view-dataset-train-m10/image/ --test_data=data/view-dataset-deformed/image/ --batch_size=$BTS --epochs=$EPOCHS --architecture="mobilenetv2" --name "m10_mobilenetv2_vox_$VOXSIZE" --train_sample_ratio 10 --test_sample_ratio 10 --load_model "/media/hdd/github/more_mvcnn/logs/mobilenetv2-27-Feb-233844-m10_mobilenetv2_1_1/classification_model.h5"
-# python3 single_view_cnn.py --train_data=data/view-dataset-train-m10/image/ --test_data=data/view-dataset-deformed/image/ --batch_size=$BTS --epochs=$EPOCHS --architecture="mobilenetv2" --name "m10_vgg_vox_$VOXSIZE" --train_sample_ratio 10 --test_sample_ratio 10 --load_model "/media/hdd/github/more_mvcnn/logs/vgg-28-Feb-033836-m10_vgg_1_10/classification_model.h5"
+    rm -rf data/view-dataset-deformed/
+done
 
-rm -rf data/view-dataset-deformed/image/*
 
-# rm -rf data/view-dataset-deformed/image/*
-# SIGMA=2.0
-# export MESA_LOADER_DRIVER_OVERRIDE=i965;python3 generate_view_dataset_deformed.py --modelnet10 /media/hdd/Datasets/ModelNet10 --set test --out data/ -x 5 -y 3 --mname "modelnet10" --sigma 2.0
-# python3 single_view_cnn.py --train_data=data/view-dataset-train-m10/image/ --test_data=data/view-dataset-deformed/image/ --batch_size=$BTS --epochs=$EPOCHS --architecture="mobilenetv2" --name "m10_mobilenetv2_sig_$SIGMA" --train_sample_ratio 10 --test_sample_ratio 10 --load_model "/media/hdd/github/more_mvcnn/logs/mobilenetv2-27-Feb-233844-m10_mobilenetv2_1_1/classification_model.h5"
-# python3 single_view_cnn.py --train_data=data/view-dataset-train-m10/image/ --test_data=data/view-dataset-deformed/image/ --batch_size=$BTS --epochs=$EPOCHS --architecture="mobilenetv2" --name "m10_vgg_sig_$SIGMA" --train_sample_ratio 10 --test_sample_ratio 10 --load_model "/media/hdd/github/more_mvcnn/logs/vgg-28-Feb-033836-m10_vgg_1_10/classification_model.h5"
+# SIGMA=0.2
 
-# rm -rf data/view-dataset-deformed/image/*
+declare -a sigarr=(0.002 0.004 0.006 0.008 0.010)
+# declare -a sigarr=(0.002)
+
+for SIGMA in "${sigarr[@]}"
+do
+
+    rm -rf data/view-dataset-deformed/image/
+    export MESA_LOADER_DRIVER_OVERRIDE=i965;python3 generate_view_dataset_deformed.py --modelnet10 /media/hdd/Datasets/ModelNet10 --set test --out data/ --mname "modelnet10" --sigma $SIGMA
+    BTS=512
+    python3 single_view_cnn.py --train_data=data/view-dataset-train-m10/image/ --test_data=data/view-dataset-deformed/image/ --batch_size=$BTS --epochs=$EPOCHS --architecture="mobilenetv2" --name "m10_mobilenetv2_sig_$SIGMA" --train_sample_ratio 10 --test_sample_ratio 10 --load_model "/media/hdd/github/more_mvcnn/logs/mobilenetv2-27-Feb-233844-m10_mobilenetv2_1_1/classification_model.h5" --sigma $SIGMA
+    BTS=128
+    python3 single_view_cnn.py --train_data=data/view-dataset-train-m10/image/ --test_data=data/view-dataset-deformed/image/ --batch_size=$BTS --epochs=$EPOCHS --architecture="vgg" --name "m10_vgg_sig_$SIGMA" --train_sample_ratio 10 --test_sample_ratio 10 --load_model "/media/hdd/github/more_mvcnn/logs/vgg-28-Feb-033836-m10_vgg_1_10/classification_model.h5" --sigma $SIGMA
+    rm -rf data/view-dataset-deformed/image/
+done

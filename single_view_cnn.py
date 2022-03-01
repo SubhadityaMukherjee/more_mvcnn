@@ -1,3 +1,5 @@
+from statistics import mode
+from itsdangerous import exc
 from tensorflow.keras import layers
 from tensorflow import keras
 import tensorflow as tf
@@ -8,8 +10,11 @@ import pandas as pd
 import argparse
 import os
 from unicodedata import name
+import random
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
+random.seed(442)
 
 print("Num GPUs Available: ", tf.config.list_physical_devices('GPU'))
 # exit(0)
@@ -21,6 +26,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--train_data")
 parser.add_argument("--test_data")
 parser.add_argument("--batch_size", type=int, default=32)
+parser.add_argument("--sigma", default = 0.002)
 parser.add_argument("--epochs", type=int, default=3)
 parser.add_argument("--train_sample_ratio", type=float, default=10)
 parser.add_argument("--test_sample_ratio", type=float, default=30)
@@ -92,7 +98,10 @@ METRICS = [
 #     else:
 #         return 1e-5
 
-
+data_augmentation = keras.Sequential([
+    layers.GaussianNoise(0.002),
+]
+)
 CALLBACKS = [
     tf.keras.callbacks.ModelCheckpoint(
         filepath=os.path.join(MODEL_DIR, f'classification_model.h5'),
@@ -143,7 +152,14 @@ def data_loader_test():
             #                                        interpolation='nearest')
             # x = keras.preprocessing.image.img_to_array(x)
             x = cv2.imread(file_path)
-            x = x / 255.0
+            x = x / 255.0           
+            k = random.randint(0, 100)
+            try:
+                if k<60:
+                    x=cv2.GaussianBlur(x, (3,3),sigmaX =float(args.sigma))
+            except Exception as e:
+                print(e)
+
             # x = x[:, :, 0]
             label_class = TEST_FILES[i].split("_")[0]
             if label_class == 'night':
@@ -160,7 +176,8 @@ def dataset_generator_train():
                                              output_types=(
                                                  tf.float32, (tf.int16, tf.int16)),
                                              output_shapes=(tf.TensorShape([224, 224, 3]),
-                                                            (tf.TensorShape([NO_CLASSES]), tf.TensorShape([60]))))
+                                                            (tf.TensorShape([NO_CLASSES]), tf.TensorShape([60]))),
+                                                            )
     dataset = dataset.batch(BATCH_SIZE)
     dataset = dataset.repeat(EPOCHS)
     return dataset

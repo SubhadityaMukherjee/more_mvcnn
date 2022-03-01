@@ -20,18 +20,24 @@ import random
 import multiprocessing
 from par import *
 import subprocess
-MAX_THREAD = max(multiprocessing.cpu_count(),10) - 1
+MAX_THREAD = max(multiprocessing.cpu_count(), 10) - 1
 print(MAX_THREAD)
 
-parser = argparse.ArgumentParser(description="Generates views regularly positioned on a sphere around the object.")
-parser.add_argument("--modelnet10", help="Specify root directory to the ModelNet10 dataset.")
-parser.add_argument("--mname")
+parser = argparse.ArgumentParser(
+    description="Generates views regularly positioned on a sphere around the object.")
+parser.add_argument(
+    "--modelnet10", help="Specify root directory to the ModelNet10 dataset.")
+parser.add_argument("--mname", default = "modelnet10")
 parser.add_argument("--sigma", default=None)
 parser.add_argument("--voxsize", default=None)
-parser.add_argument("--set", help="Subdirectory: 'train' or 'test'.", default='train')
-parser.add_argument("--save_depth", help="Add to also save the correspondent depth-views dataset.", action='store_true')
-parser.add_argument("--out", help="Select a desired output directory.", default=".")
-parser.add_argument("-v", "--verbose", help="Prints current state of the program while executing.", action='store_true')
+parser.add_argument(
+    "--set", help="Subdirectory: 'train' or 'test'.", default='train')
+parser.add_argument(
+    "--save_depth", help="Add to also save the correspondent depth-views dataset.", action='store_true')
+parser.add_argument(
+    "--out", help="Select a desired output directory.", default=".")
+parser.add_argument(
+    "-v", "--verbose", help="Prints current state of the program while executing.", action='store_true')
 parser.add_argument("-x", "--horizontal_split", help="Number of views from a single ring. Each ring is divided in x "
                                                      "splits so each viewpoint is at an angle of multiple of 360/x. "
                                                      "Example: -x=12 --> phi=[0, 30, 60, 90, 120, ... , 330].",
@@ -153,7 +159,6 @@ def nonblocking_custom_capture(tr_mesh, rot_xyz, last_rot):
                     result)
 
 
-
 labels = []
 for cur in os.listdir(DATA_PATH):
     if os.path.isdir(os.path.join(DATA_PATH, cur)):
@@ -161,64 +166,79 @@ for cur in os.listdir(DATA_PATH):
 
 # labels = labels[:10]
 
+
 def train(filename, label):
     try:
         start = time()
         ViewData.obj_path = os.path.join(DATA_PATH, label, args.set, filename)
         ViewData.obj_filename = filename
         ViewData.obj_index = filename.split(".")[0].split("_")[-1]
-        ViewData.obj_label = filename.split(".")[0].replace("_" + ViewData.obj_index, '')
+        ViewData.obj_label = filename.split(
+            ".")[0].replace("_" + ViewData.obj_index, '')
         ViewData.view_index = 0
         if args.verbose:
-            print(f"[INFO] Current object: {ViewData.obj_label}_{ViewData.obj_index}")
+            print(
+                f"[INFO] Current object: {ViewData.obj_label}_{ViewData.obj_index}")
             print(
                 f"[DEBUG] ViewData:\n [objpath: {ViewData.obj_path},\n filename: {ViewData.obj_filename},\n label: {ViewData.obj_label},\n index: {ViewData.obj_index}]")
         mesh = io.read_triangle_mesh(ViewData.obj_path)
         mesh.vertices = normalize3d(mesh.vertices)
+        import copy
+        backup_mesh = copy.deepcopy(mesh)
+
 
         # sigma = np.random.choice([0.0,0.3, 0.6, 0.9],p = [.25, .25, .25, .25])
-      
+        if args.sigma != None:
+            choose_deform = "noise"
+        if args.voxsize != None:
+            choose_deform = "downsample"
+        k = random.randint(0, 100)
+        if k >= 2:  # Add only to a percentage of the cases
+            choose_deform = None
+        else:
+            print("deform")
+            # verts = np.asarray(mesh.get_non_manifold_vertices())
+            pcl = o3d.geometry.PointCloud(
+                points=o3d.utility.Vector3dVector(mesh.vertices))
+            # pcl = mesh.sample_points_uniformly(vox_size * len(mesh.vertices))
+            if choose_deform == "noise":
+                pcl = apply_noise(pcl, args.sigma)
+                mesh = o3d.geometry.TriangleMesh.create_from_point_cloud_alpha_shape(
+                    pcl, .1)
+            elif choose_deform == "downsample":
+                pcl = pcl.voxel_down_sample(voxel_size=args.voxsize)
+                mesh = o3d.geometry.TriangleMesh.create_from_point_cloud_alpha_shape(
+                    pcl, 2)
+
         mesh.compute_vertex_normals()
+        backup_mesh.compute_vertex_normals()
         rotations = []
         for j in range(0, N_VIEWS_H):
             for i in range(N_VIEWS_W):
                 # Excluding 'rings' on 0 and 180 degrees since it would be the same projection but rotated
-                rotations.append((-(j + 1) * np.pi / (N_VIEWS_H + 1), 0, i * 2 * np.pi / N_VIEWS_W))
+                rotations.append(
+                    (-(j + 1) * np.pi / (N_VIEWS_H + 1), 0, i * 2 * np.pi / N_VIEWS_W))
         last_rotation = (0, 0, 0)
+        deformed_index = 0
         for rot in rotations:
-            # sigma = np.random.choice([0.0,3.0, 6.0, 9.0],p = [.25, .25, .25, .25])
-            # vox_size = np.random.choice([1.0,0.01, 0.05, 0.1],p = [.25, .25, .25, .25])
-            # choose_deform = random.choices([None, "noise", "downsample"], weights = [.3, .3, .3])
-            if args.sigma != None:
-                choose_deform = "noise"
-            if args.voxsize != None:
-                choose_deform = "downsample"
-
-            # print(choose_deform)
-            if choose_deform != None:
-                # verts = np.asarray(mesh.get_non_manifold_vertices())
-                pcl = o3d.geometry.PointCloud(
-                points=o3d.utility.Vector3dVector(mesh.vertices))
-                # pcl = mesh.sample_points_uniformly(vox_size * len(mesh.vertices))
-            if choose_deform == "noise":
-                pcl = apply_noise(pcl, args.sigma)
-                mesh = o3d.geometry.TriangleMesh.create_from_point_cloud_alpha_shape(pcl, .1)
-            elif choose_deform == "downsample":
-                pcl = pcl.voxel_down_sample(voxel_size = args.voxsize)
-                mesh = o3d.geometry.TriangleMesh.create_from_point_cloud_alpha_shape(pcl, 2)
-
-
             nonblocking_custom_capture(mesh, rot, last_rotation)
+            if choose_deform!= None and deformed_index <2:
+                deformed_index+=1
+            if deformed_index >=1:
+                mesh = backup_mesh
+
             ViewData.view_index += 1
             if args.verbose:
-                print(f"[INFO] Elaborating view {ViewData.view_index}/{N_VIEWS_W * N_VIEWS_H}...")
+                print(
+                    f"[INFO] Elaborating view {ViewData.view_index}/{N_VIEWS_W * N_VIEWS_H}...")
             last_rotation = rot
 
         end = time()
         if args.verbose:
             print(f"[INFO] Time to elaborate file {filename}: {end - start}")
     except Exception as e:
-        print(e)
+        pass
+        # print(e)
 
 
 for label in tqdm(labels, total=len(labels)):
@@ -227,8 +247,8 @@ for label in tqdm(labels, total=len(labels)):
     for filename in files:  # Removes file without .off extension
         if not filename.endswith('off'):
             files.remove(filename)
-    
-    files = files[:400]
+
+    files = files[:200]
 
     # results = Parallel(n_jobs=MAX_THREAD)(delayed(train)(filename, label) for filename in files)
-    results = parallel(partial(train, label = label), files, 10)
+    results = parallel(partial(train, label=label), files, 10)
