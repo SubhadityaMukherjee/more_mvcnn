@@ -1,3 +1,4 @@
+#%%
 """
 Trains a model for entropy estimation of 3D objects.
 
@@ -13,12 +14,13 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 from tensorflow import keras
+import shutil
 from tensorflow.keras import layers
-import utility
+import utils
 import kerastuner as kt
 from kerastuner.tuners import Hyperband
 from tqdm import tqdm
-
+#%%
 print(f"Tensorflow v{tf.__version__}\n")
 
 parser = argparse.ArgumentParser()
@@ -27,14 +29,22 @@ parser.add_argument('--entropy_dataset', required=True)
 parser.add_argument('-b', '--batch_size', type=int, default=8)
 parser.add_argument('-e', '--epochs', type=int, default=5)
 parser.add_argument('--load_model')
-parser.add_argument('--out', default="./")
+parser.add_argument('--out', default="./logs")
 args = parser.parse_args()
-
+#%%
+args = {
+    "voxel_data": "old_scripts/.voxel_data",
+    "entropy_dataset": "old_scripts/old_data/entropy-dataset-train/entropy_dataset.csv",
+    "out": "./logs",
+}
 TIMESTAMP = datetime.now().strftime('%d-%m-%H%M')
 BASE_DIR = sys.path[0]
-DATA_DIR = os.path.join(BASE_DIR, args.voxel_data)
-MODEL_DIR = os.path.join(BASE_DIR, args.out, f"entropy-model")
+# DATA_DIR = os.path.join(BASE_DIR, args.voxel_data)
+# MODEL_DIR = os.path.join(BASE_DIR, args.out, f"entropy-model")
 
+DATA_DIR = os.path.join(BASE_DIR, args["voxel_data"])
+MODEL_DIR = os.path.join(BASE_DIR, args["out"], f"entropy-model")
+#%%
 METRICS = [
     keras.metrics.AUC(name='auc'),
     keras.metrics.MeanSquaredError(name='mse')
@@ -57,14 +67,17 @@ CALLBACKS = [
                                          mode='min',
                                          min_lr=3e-7),
 ]
-CLASSES = utility.CLASSES
+CLASSES=[
+'glassBox', 'door', 'car', 'flowerPot', 'piano', 'wardrobe', 'table', 'monitor', 'mantel', 'keyboard', 'sink', 'bowl', 'laptop', 'xbox', 'airplane', 'tvStand', 'curtain', 'cup', 'night_stand', 'sofa', 'rangeHood', 'dresser', 'lamp', 'bench', 'guitar', 'person', 'bathtub', 'bookshelf', 'tent', 'radio', 'desk', 'cone', 'vase', 'stairs', 'plant', 'bottle', 'toilet', 'bed', 'stool', 'chair'
+    ]
 
+#%%
 
 def load_data(data, csv):
     x_train, y_train, x_test, y_test = [], [], [], []
     csv = pd.read_csv(csv)
     print('[INFO] Loading Data...')
-    for lab in CLASSES:
+    for lab in tqdm(CLASSES, total = len(CLASSES)):
         # print(f"[DEBUG] Loading {lab}\n")
         for file in tqdm(os.listdir(os.path.join(data, lab, 'train'))):
             if '.npy' in file:
@@ -75,7 +88,7 @@ def load_data(data, csv):
                 index = int(filename.split("_")[-1])
                 # print(f"[DEBUG] label, index : {lab}, {index}")
                 subcsv = csv[csv['label'] == lab]
-                entropies = np.array(subcsv[subcsv['object_index'] == index].sort_values(by=['view_code']).entropy)
+                entropies = np.array(subcsv[subcsv['obj_ind'] == index].sort_values(by=['code']).entropy)
                 # print(f"[DEBUG] Entropies of {file} : {entropies}")
                 y_train.append(entropies)
 
@@ -88,7 +101,7 @@ def load_data(data, csv):
                 index = int(filename.split("_")[-1])
                 # print(f"[DEBUG] label, index : {lab}, {index}")
                 subcsv = csv[csv['label'] == lab]
-                entropies = np.array(subcsv[subcsv['object_index'] == index].sort_values(by=['view_code']).entropy)
+                entropies = np.array(subcsv[subcsv['obj_ind'] == index].sort_values(by=['code']).entropy)
                 # print(f"[DEBUG] Entropies of {file} : {entropies}")
                 y_test.append(entropies)
 
@@ -142,35 +155,45 @@ def generate_cnn():
     model.compile(optimizer=keras.optimizers.Adam(learning_rate=5e-5), loss='mae', metrics=['mse'])
     model.summary()
     return model
+#%%
 
-
-def main():
+# def main():
+try:
     os.mkdir(MODEL_DIR)
-    x_train, y_train, x_test, y_test = load_data(args.voxel_data, args.entropy_dataset)
+except FileExistsError:
+    shutil.rmtree(MODEL_DIR)
+    os.mkdir(MODEL_DIR)
 
-    ## Uncomment following to perform hyperparameters training.
-    # tuner = Hyperband(generate_cnn,
-    #                   objective=kt.Objective("val_loss", direction="min"),
-    #                   max_epochs=20,
-    #                   factor=3,
-    #                   directory='../../../../data/s3866033/fyp',  # Only admits relative path, for some reason.
-    #                   project_name=f'hyperband_optimization{TIMESTAMP}')
-    # tuner.search(x_train, y_train, epochs=10, validation_data=(x_test, y_test))
-    # best_hps = tuner.get_best_hyperparameters(num_trials=1)[0]
-    #
-    # model = tuner.hypermodel.build(best_hps)
+    # pass
+# x_train, y_train, x_test, y_test = load_data(args.voxel_data, args.entropy_dataset)
+x_train, y_train, x_test, y_test = load_data(args["voxel_data"], args["entropy_dataset"])
+#%%
+## Uncomment following to perform hyperparameters training.
+# tuner = Hyperband(generate_cnn,
+#                   objective=kt.Objective("val_loss", direction="min"),
+#                   max_epochs=20,
+#                   factor=3,
+#                   directory='../../../../data/s3866033/fyp',  # Only admits relative path, for some reason.
+#                   project_name=f'hyperband_optimization{TIMESTAMP}')
+# tuner.search(x_train, y_train, epochs=10, validation_data=(x_test, y_test))
+# best_hps = tuner.get_best_hyperparameters(num_trials=1)[0]
+#
+# model = tuner.hypermodel.build(best_hps)
 
-    model = generate_cnn()
-    if args.load_model is not None:
-        model.load_weights(args.load_model)
-        print(f"[INFO] Model {args.load_model} correctly loaded.")
-    history = model.fit(x_train, y_train,
-                        epochs=args.epochs,
-                        batch_size=args.batch_size,
-                        validation_data=(x_test, y_test),
-                        callbacks=CALLBACKS,
-                        shuffle=True)
+#%%
+x_train
+#%%
+model = generate_cnn()
+if args.load_model is not None:
+    model.load_weights(args.load_model)
+    print(f"[INFO] Model {args.load_model} correctly loaded.")
+history = model.fit(x_train, y_train,
+                    epochs=args.epochs,
+                    batch_size=args.batch_size,
+                    validation_data=(x_test, y_test),
+                    callbacks=CALLBACKS,
+                    shuffle=True)
 
 
-if __name__ == '__main__':
-    main()
+# if __name__ == '__main__':
+#     main()

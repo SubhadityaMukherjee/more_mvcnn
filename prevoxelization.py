@@ -156,8 +156,10 @@ for label in tqdm(labels, total=len(labels)):
             files_test.remove(file)
 
     print(len(files_train), len(files_test))
-    files_train = files_train[:100]
+    files_train = files_train[:20]
+    files_test = files_test[:20]
     # results = Parallel(n_jobs=MAX_THREAD)(delayed(run_train)(file, label) for file in files_train)
 
     # results = Parallel(n_jobs=MAX_THREAD)(delayed(run_train)(file, label) for file in files_test)
     results = parallel(partial(run_train, label = label), files_train, num_cpus = MAX_THREAD)
+    results = parallel(partial(run_test, label = label), files_test, num_cpus = MAX_THREAD)

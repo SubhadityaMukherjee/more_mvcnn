@@ -11,15 +11,12 @@ from open3d import *
 import open3d as o3d
 import numpy as np
 import cv2
-from utility import normalize3d
+from utils import *
 from time import time
 from tqdm import tqdm
 from joblib import Parallel, delayed
 import multiprocessing
-from par import *
 import subprocess
-MAX_THREAD = max(multiprocessing.cpu_count(),10) - 1
-print(MAX_THREAD)
 
 parser = argparse.ArgumentParser(description="Generates views regularly positioned on a sphere around the object.")
 parser.add_argument("--modelnet10", help="Specify root directory to the ModelNet10 dataset.")
@@ -53,6 +50,8 @@ IMAGE_WIDTH = 224
 IMAGE_HEIGHT = 224
 N_VIEWS_W = args.horizontal_split
 N_VIEWS_H = args.vertical_split
+MAX_THREAD = max(multiprocessing.cpu_count(),10) - 1
+print("No of threads " + str(MAX_THREAD))
 
 
 class ViewData:
@@ -64,15 +63,6 @@ class ViewData:
     obj_filename = ''
     phi = 0
     theta = 0
-
-
-if os.path.exists(os.path.join(BASE_DIR, OUT_DIR)):
-    import shutil
-    shutil.rmtree(os.path.join(BASE_DIR, OUT_DIR))
-os.makedirs(os.path.join(OUT_DIR, "image"))
-if args.save_depth:
-    os.makedirs(os.path.join(OUT_DIR, "depth"))
-
 
 def nonblocking_custom_capture(tr_mesh, rot_xyz, last_rot):
     """
@@ -136,13 +126,6 @@ def nonblocking_custom_capture(tr_mesh, rot_xyz, last_rot):
                                                                       ViewData.view_index),
                     result)
 
-
-
-labels = []
-for cur in os.listdir(DATA_PATH):
-    if os.path.isdir(os.path.join(DATA_PATH, cur)):
-        labels.append(cur)
-
 def train(filename, label):
     try:
         start = time()
@@ -178,7 +161,21 @@ def train(filename, label):
     except Exception as e:
         print(e)
 
+# Create output directory if it doesn't exist
+if os.path.exists(os.path.join(BASE_DIR, OUT_DIR)):
+    import shutil
+    shutil.rmtree(os.path.join(BASE_DIR, OUT_DIR))
+os.makedirs(os.path.join(OUT_DIR, "image"))
+if args.save_depth:
+    os.makedirs(os.path.join(OUT_DIR, "depth"))
 
+# Get all labels
+labels = []
+for cur in os.listdir(DATA_PATH):
+    if os.path.isdir(os.path.join(DATA_PATH, cur)):
+        labels.append(cur)
+
+# Generate views for each label
 for label in tqdm(labels, total=len(labels)):
     files = os.listdir(os.path.join(DATA_PATH, label, args.set))
     # files.sort()
@@ -186,7 +183,7 @@ for label in tqdm(labels, total=len(labels)):
         if not filename.endswith('off'):
             files.remove(filename)
     
-    files = files[:200]
+    # files = files[:200]
 
     # results = Parallel(n_jobs=MAX_THREAD)(delayed(train)(filename, label) for filename in files)
     results = parallel(partial(train, label = label), files, 10)

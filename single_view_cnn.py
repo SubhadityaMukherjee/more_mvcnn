@@ -1,9 +1,8 @@
 from statistics import mode
-from itsdangerous import exc
 from tensorflow.keras import layers
 from tensorflow import keras
 import tensorflow as tf
-import utility
+import utils
 import cv2
 import numpy as np
 import pandas as pd
@@ -11,13 +10,8 @@ import argparse
 import os
 from unicodedata import name
 import random
-
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-
 random.seed(442)
-
-print("Num GPUs Available: ", tf.config.list_physical_devices('GPU'))
-# exit(0)
 
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 keras.mixed_precision.set_global_policy("mixed_float16")
@@ -39,9 +33,10 @@ parser.add_argument("--name")
 parser.add_argument("--modeln", default="modelnet10")
 args = parser.parse_args()
 
+print("Num GPUs Available: ", tf.config.list_physical_devices('GPU'))
 EPOCHS = args.epochs
 BATCH_SIZE = args.batch_size
-TIMESTAMP = utility.get_datastamp()
+TIMESTAMP = utils.get_datastamp()
 MODEL_DIR = os.path.join(
     args.out, f"{args.architecture}-{TIMESTAMP}-{args.name}")
 
@@ -64,61 +59,23 @@ for filename in TEST_FILES:
 np.random.shuffle(TEST_FILES)
 NUM_OBJECTS_TEST = len(TEST_FILES)
 TEST_FILTER = args.test_sample_ratio
+
+# Fix labels
 if args.modeln == "modelnet40":
     NO_CLASSES = len(os.listdir("/media/hdd/Datasets/ModelNet40/"))
-    labels_dict = utility.get_label_dict(CLASSES=[
+    labels_dict = utils.get_label_dict(CLASSES=[
 'glassBox', 'door', 'car', 'flowerPot', 'piano', 'wardrobe', 'table', 'monitor', 'mantel', 'keyboard', 'sink', 'bowl', 'laptop', 'xbox', 'airplane', 'tvStand', 'curtain', 'cup', 'night_stand', 'sofa', 'rangeHood', 'dresser', 'lamp', 'bench', 'guitar', 'person', 'bathtub', 'bookshelf', 'tent', 'radio', 'desk', 'cone', 'vase', 'stairs', 'plant', 'bottle', 'toilet', 'bed', 'stool', 'chair'
     ]
     )
 else:
     NO_CLASSES = len(os.listdir("/media/hdd/Datasets/ModelNet10/"))
-    labels_dict = utility.get_label_dict(CLASSES=[
+    labels_dict = utils.get_label_dict(CLASSES=[
         'bathtub', 'bed', 'chair', 'desk', 'dresser',
         'monitor', 'night_stand', 'sofa', 'table', 'toilet'
     ]
     )
 
 os.mkdir(MODEL_DIR)
-
-METRICS = [
-    keras.metrics.CategoricalAccuracy(name='accuracy'),
-    keras.metrics.TopKCategoricalAccuracy(name='topk', k=5),
-    # keras.metrics.BinaryAccuracy(name='binary_accuracy'),
-    # keras.metrics.Precision(name='precision'),
-    # keras.metrics.Recall(name='recall'),
-    # keras.metrics.AUC(name='auc')
-]
-
-
-# def scheduler(epoch, lr):
-#     if epoch <= 20:
-#         return 1e-3
-#     elif 20 < epoch <= 50:
-#         return 1e-4
-#     else:
-#         return 1e-5
-
-data_augmentation = keras.Sequential([
-    layers.GaussianNoise(0.002),
-]
-)
-CALLBACKS = [
-    tf.keras.callbacks.ModelCheckpoint(
-        filepath=os.path.join(MODEL_DIR, f'classification_model.h5'),
-        monitor='val_loss',
-        mode='min',
-        save_best_only=True),
-    tf.keras.callbacks.TensorBoard(
-        log_dir=os.path.join(MODEL_DIR, 'logs'), update_freq=5),
-    tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss',
-                                         factor=0.5,
-                                         patience=3,
-                                         verbose=1,
-                                         mode='min',
-                                         min_lr=1e-8),
-    tf.keras.callbacks.EarlyStopping(patience=5),
-    # tf.keras.callbacks.LearningRateScheduler(scheduler)
-]
 
 
 def data_loader_train():
@@ -133,9 +90,9 @@ def data_loader_train():
             label_class = TRAIN_FILES[idx].split("_")[0]
             if label_class == 'night':
                 label_class = 'night_stand'  # Quick fix for label parsing
-            label_class = utility.int_to_1hot(
+            label_class = utils.int_to_1hot(
                 labels_dict[label_class], NO_CLASSES)
-            label_view = utility.int_to_1hot(
+            label_view = utils.int_to_1hot(
                 int(TRAIN_FILES[idx].split("_")[-1].split(".")[0]), 60)
             yield np.resize(x, (224, 224, 3)), (label_class, label_view)
 
@@ -164,9 +121,9 @@ def data_loader_test():
             label_class = TEST_FILES[i].split("_")[0]
             if label_class == 'night':
                 label_class = 'night_stand'  # Quick fix for label parsing
-            label_class = utility.int_to_1hot(
+            label_class = utils.int_to_1hot(
                 labels_dict[label_class], NO_CLASSES)
-            label_view = utility.int_to_1hot(
+            label_view = utils.int_to_1hot(
                 int(TEST_FILES[i].split("_")[-1].split(".")[0]), 60)
             yield np.resize(x, (224, 224, 3)), (label_class, label_view)
 
@@ -293,6 +250,38 @@ def generate_cnn(app="vgg"):
         learning_rate=float(args.lr)), loss=losses, metrics=METRICS)
     # keras.utils.plot_model(model, "net_structure.png", show_shapes=True, expand_nested=True)
     return model
+
+METRICS = [
+    keras.metrics.CategoricalAccuracy(name='accuracy'),
+    keras.metrics.TopKCategoricalAccuracy(name='topk', k=5),
+    # keras.metrics.BinaryAccuracy(name='binary_accuracy'),
+    # keras.metrics.Precision(name='precision'),
+    # keras.metrics.Recall(name='recall'),
+    # keras.metrics.AUC(name='auc')
+]
+
+
+data_augmentation = keras.Sequential([
+    layers.GaussianNoise(0.002),
+]
+)
+CALLBACKS = [
+    tf.keras.callbacks.ModelCheckpoint(
+        filepath=os.path.join(MODEL_DIR, f'classification_model.h5'),
+        monitor='val_loss',
+        mode='min',
+        save_best_only=True),
+    tf.keras.callbacks.TensorBoard(
+        log_dir=os.path.join(MODEL_DIR, 'logs'), update_freq=5),
+    tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss',
+                                         factor=0.5,
+                                         patience=3,
+                                         verbose=1,
+                                         mode='min',
+                                         min_lr=1e-8),
+    tf.keras.callbacks.EarlyStopping(patience=5),
+    # tf.keras.callbacks.LearningRateScheduler(scheduler)
+]
 
 
 def main():

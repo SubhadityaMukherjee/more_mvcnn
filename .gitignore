@@ -8,4 +8,7 @@ __pycache__
 *.npy
 logs/
 logs
+old_logs
+old_logs/
+old_scripts/
 *.tfrecord
