@@ -10,5 +10,8 @@ logs/
 logs
 old_logs
 old_logs/
-old_scripts/
+old_data/
+view-data*
+*.pkl
+
 *.tfrecord
