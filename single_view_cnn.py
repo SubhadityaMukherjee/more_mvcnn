@@ -1,4 +1,3 @@
-from statistics import mode
 from tensorflow.keras import layers
 from tensorflow import keras
 import tensorflow as tf
@@ -8,7 +7,6 @@ import numpy as np
 import pandas as pd
 import argparse
 import os
-from unicodedata import name
 import random
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 random.seed(442)
