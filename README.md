@@ -92,6 +92,7 @@ data to a 1:50 ratio and to expect at least 1.5h per epoch of training time
 for a 1:1 train set. To achieve comparable results while reducing substantially 
 training time use a higher subsampling ratio and increase the learning rate of at 
 least an order of magnitude.
+```
 
 ## Demo
 Pre-trained models are available here: 
