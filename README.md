@@ -129,7 +129,7 @@ Please adequately refer to the papers any time this code is being used. If you d
 ```
 
 ## Authors: 
-[Subhaditya Mukherjee](https://subhadityamukherjee.github.io/SubhadityaMukherjeegit/), Tommaso Parisotto and [Hamidreza Kasaei](https://hkasaei.github.io/)  
+Tommaso Parisotto, [Subhaditya Mukherjee](https://subhadityamukherjee.github.io/SubhadityaMukherjeegit/), and [Hamidreza Kasaei](https://hkasaei.github.io/)  
 Work done while at [RUG](https://www.rug.nl/).
 
 ## References
