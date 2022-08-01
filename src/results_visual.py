@@ -1,29 +1,72 @@
+"""
+Collection of scripts for generating visuals of the results in the paper
+"""
+import argparse
 import os
 import sys
-import argparse
-import numpy as np
-import pandas as pd
-import open3d
+
 import cv2
-from tensorflow import keras
-import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
-from sklearn import preprocessing, metrics
-from skimage.measure import shannon_entropy
-from skimage.feature import peak_local_max
+import matplotlib.pyplot as plt
+import numpy as np
+import open3d
+import pandas as pd
 import seaborn as sns
+from skimage.feature import peak_local_max
+from skimage.measure import shannon_entropy
+from sklearn import metrics, preprocessing
+from tensorflow import keras
 
 parser = argparse.ArgumentParser()
-parser.add_argument('data')
+parser.add_argument("data")
 args = parser.parse_args()
 
 # CLASSES = ['bathtub', 'bed', 'chair', 'desk', 'dresser',
-        #    'monitor', 'night_stand', 'sofa', 'table', 'toilet']
-CLASSES=[
-'glassBox', 'door', 'car', 'flowerPot', 'piano', 'wardrobe', 'table', 'monitor', 'mantel', 'keyboard', 'sink', 'bowl', 'laptop', 'xbox', 'airplane', 'tvStand', 'curtain', 'cup', 'night_stand', 'sofa', 'rangeHood', 'dresser', 'lamp', 'bench', 'guitar', 'person', 'bathtub', 'bookshelf', 'tent', 'radio', 'desk', 'cone', 'vase', 'stairs', 'plant', 'bottle', 'toilet', 'bed', 'stool', 'chair'
-    ]
+#    'monitor', 'night_stand', 'sofa', 'table', 'toilet']
+CLASSES = [
+    "glassBox",
+    "door",
+    "car",
+    "flowerPot",
+    "piano",
+    "wardrobe",
+    "table",
+    "monitor",
+    "mantel",
+    "keyboard",
+    "sink",
+    "bowl",
+    "laptop",
+    "xbox",
+    "airplane",
+    "tvStand",
+    "curtain",
+    "cup",
+    "night_stand",
+    "sofa",
+    "rangeHood",
+    "dresser",
+    "lamp",
+    "bench",
+    "guitar",
+    "person",
+    "bathtub",
+    "bookshelf",
+    "tent",
+    "radio",
+    "desk",
+    "cone",
+    "vase",
+    "stairs",
+    "plant",
+    "bottle",
+    "toilet",
+    "bed",
+    "stool",
+    "chair",
+]
 
-TMP_DIR = os.path.join(sys.path[0], 'tmp')
+TMP_DIR = os.path.join(sys.path[0], "tmp")
 
 
 def normalize3d(vector):
@@ -33,7 +76,7 @@ def normalize3d(vector):
     return open3d.utility.Vector3dVector(np_normalized)
 
 
-def nonblocking_custom_capture(pcd, rot_xyz, last_rot, view_index, capture='depth'):
+def nonblocking_custom_capture(pcd, rot_xyz, last_rot, view_index, capture="depth"):
     vis = open3d.visualization.Visualizer()
     vis.create_window(width=224, height=224, visible=False)
     vis.add_geometry(pcd)
@@ -46,14 +89,25 @@ def nonblocking_custom_capture(pcd, rot_xyz, last_rot, view_index, capture='dept
     vis.update_geometry(pcd)
     vis.poll_events()
     vis.update_renderer()
-    if capture == 'depth':
+    if capture == "depth":
         vis.capture_depth_image(
-            "{}/{}_x_{}_y_{}.png".format(TMP_DIR, view_index, -round(np.rad2deg(rot_xyz[0])),
-                                         round(np.rad2deg(rot_xyz[2]))), depth_scale=10000)
-    elif capture == 'image':
+            "{}/{}_x_{}_y_{}.png".format(
+                TMP_DIR,
+                view_index,
+                -round(np.rad2deg(rot_xyz[0])),
+                round(np.rad2deg(rot_xyz[2])),
+            ),
+            depth_scale=10000,
+        )
+    elif capture == "image":
         vis.capture_screen_image(
-            "{}/{}_x_{}_y_{}.png".format(TMP_DIR, view_index, -round(np.rad2deg(rot_xyz[0])),
-                                         round(np.rad2deg(rot_xyz[2]))))
+            "{}/{}_x_{}_y_{}.png".format(
+                TMP_DIR,
+                view_index,
+                -round(np.rad2deg(rot_xyz[0])),
+                round(np.rad2deg(rot_xyz[2])),
+            )
+        )
     else:
         print(f"[ERROR] capture: '{capture}' not recognized. Nothing was saved.")
     vis.destroy_window()
@@ -61,24 +115,24 @@ def nonblocking_custom_capture(pcd, rot_xyz, last_rot, view_index, capture='dept
 
 def entropy_distribution(label):
     data = pd.read_csv(args.data)
-    chairs = data[data['label'] == label]
+    chairs = data[data["label"] == label]
     distrib = np.zeros(60)
     for i in range(int(len(chairs) / 60)):
-        obj = chairs[chairs['object_index'] == i + 1].sort_values(by=['view_code'])
+        obj = chairs[chairs["object_index"] == i + 1].sort_values(by=["view_code"])
         for j in range(60):
-            distrib[j] = distrib[j] + obj[obj['view_code'] == j].entropy
+            distrib[j] = distrib[j] + obj[obj["view_code"] == j].entropy
     distrib = np.array(distrib)
     distrib = distrib / (len(chairs) / 60)
     # plt.bar(x=np.arange(0, 60), height=distrib)
     entropies = np.resize(distrib, (5, 12))
 
     fig, ax = plt.subplots(1, figsize=(12, 8))
-    image = ax.imshow(entropies, cmap='rainbow')
+    image = ax.imshow(entropies, cmap="rainbow")
     ax.set_title(f"Mean Entropy Map - {label.capitalize()}")
     for i in range(5):
         for j in range(12):
             value = entropies[i, j]
-            ax.annotate(f'{value:.2f}', xy=(j - 0.2, i + 0.1))
+            ax.annotate(f"{value:.2f}", xy=(j - 0.2, i + 0.1))
 
     plt.xticks([i for i in range(12)], [i * 30 for i in range(12)])
     plt.yticks([i for i in range(5)], [(i + 1) * 30 for i in range(5)])
@@ -117,23 +171,28 @@ def entropy_plot2():
             true_entropies.append(shannon_entropy(image))
 
     entropy_model = keras.models.load_model(
-        '/Users/tommaso/Documents/RUG/ResearchProject/data/voxnet-157_val_loss-0.133.h5')
+        "/Users/tommaso/Documents/RUG/ResearchProject/data/voxnet-157_val_loss-0.133.h5"
+    )
     mesh = open3d.io.read_triangle_mesh(FILENAME)
     mesh.vertices = normalize3d(mesh.vertices)
-    mesh.scale(1 / np.max(mesh.get_max_bound() - mesh.get_min_bound()), center=mesh.get_center())
+    mesh.scale(
+        1 / np.max(mesh.get_max_bound() - mesh.get_min_bound()),
+        center=mesh.get_center(),
+    )
     center = (mesh.get_max_bound() + mesh.get_min_bound()) / 2
     mesh = mesh.translate((-center[0], -center[1], -center[2]))
-    voxel_grid = open3d.geometry.VoxelGrid.create_from_triangle_mesh_within_bounds(input=mesh,
-                                                                                   voxel_size=1 / 50,
-                                                                                   min_bound=np.array(
-                                                                                       [-0.5, -0.5, -0.5]),
-                                                                                   max_bound=np.array([0.5, 0.5, 0.5]))
+    voxel_grid = open3d.geometry.VoxelGrid.create_from_triangle_mesh_within_bounds(
+        input=mesh,
+        voxel_size=1 / 50,
+        min_bound=np.array([-0.5, -0.5, -0.5]),
+        max_bound=np.array([0.5, 0.5, 0.5]),
+    )
     voxels = voxel_grid.get_voxels()
     grid_size = 50
     mask = np.zeros((grid_size, grid_size, grid_size))
     for vox in voxels:
         mask[vox.grid_index[0], vox.grid_index[1], vox.grid_index[2]] = 1
-    mask = np.pad(mask, 3, 'constant')
+    mask = np.pad(mask, 3, "constant")
     mask = np.resize(mask, (1, mask.shape[0], mask.shape[1], mask.shape[2], 1))
     pred_entropies = entropy_model.predict(mask)
 
@@ -141,14 +200,14 @@ def entropy_plot2():
     pred_entropies = np.resize(pred_entropies, (5, 12))
 
     fig, ax = plt.subplots(2, 1)
-    image = ax[0].imshow(true_entropies, cmap='rainbow')
-    ax[0].set_xlabel("Theta (\u03B8)", fontsize='large')
-    ax[0].set_ylabel("Phi (\u03A6)", fontsize='large')
+    image = ax[0].imshow(true_entropies, cmap="rainbow")
+    ax[0].set_xlabel("Theta (\u03B8)", fontsize="large")
+    ax[0].set_ylabel("Phi (\u03A6)", fontsize="large")
     ax[0].set_title(f"Original Entropy Map - {label.capitalize()}")
     for i in range(5):
         for j in range(12):
             value = true_entropies[i, j]
-            ax[0].annotate(f'{value:.2f}', xy=(j - 0.2, i + 0.1))
+            ax[0].annotate(f"{value:.2f}", xy=(j - 0.2, i + 0.1))
     # coords = peak_local_max(true_entropies, min_distance=1, exclude_border=False)
     # peak_views = []
     # for (y, x) in coords:
@@ -158,14 +217,14 @@ def entropy_plot2():
     #     circle = plt.Circle((coords[i][1], coords[i][0]), radius=0.2, color='black')
     #     ax[0].add_patch(circle)
 
-    image = ax[1].imshow(pred_entropies, cmap='rainbow')
-    ax[1].set_xlabel("Theta (\u03B8)", fontsize='large')
-    ax[1].set_ylabel("Phi (\u03A6)", fontsize='large')
+    image = ax[1].imshow(pred_entropies, cmap="rainbow")
+    ax[1].set_xlabel("Theta (\u03B8)", fontsize="large")
+    ax[1].set_ylabel("Phi (\u03A6)", fontsize="large")
     ax[1].set_title(f"Predicted Entropy Map - {label.capitalize()}")
     for i in range(5):
         for j in range(12):
             value = pred_entropies[i, j]
-            ax[1].annotate(f'{value:.2f}', xy=(j - 0.2, i + 0.1))
+            ax[1].annotate(f"{value:.2f}", xy=(j - 0.2, i + 0.1))
     # coords = peak_local_max(pred_entropies, min_distance=1, exclude_border=False)
     # peak_views = []
     # for (y, x) in coords:
@@ -218,23 +277,28 @@ def entropy_plot3():
             true_entropies.append(shannon_entropy(image))
 
     entropy_model = keras.models.load_model(
-        '/Users/tommaso/Documents/RUG/ResearchProject/data/voxnet-157_val_loss-0.133.h5')
+        "/Users/tommaso/Documents/RUG/ResearchProject/data/voxnet-157_val_loss-0.133.h5"
+    )
     mesh = open3d.io.read_triangle_mesh(FILENAME)
     mesh.vertices = normalize3d(mesh.vertices)
-    mesh.scale(1 / np.max(mesh.get_max_bound() - mesh.get_min_bound()), center=mesh.get_center())
+    mesh.scale(
+        1 / np.max(mesh.get_max_bound() - mesh.get_min_bound()),
+        center=mesh.get_center(),
+    )
     center = (mesh.get_max_bound() + mesh.get_min_bound()) / 2
     mesh = mesh.translate((-center[0], -center[1], -center[2]))
-    voxel_grid = open3d.geometry.VoxelGrid.create_from_triangle_mesh_within_bounds(input=mesh,
-                                                                                   voxel_size=1 / 50,
-                                                                                   min_bound=np.array(
-                                                                                       [-0.5, -0.5, -0.5]),
-                                                                                   max_bound=np.array([0.5, 0.5, 0.5]))
+    voxel_grid = open3d.geometry.VoxelGrid.create_from_triangle_mesh_within_bounds(
+        input=mesh,
+        voxel_size=1 / 50,
+        min_bound=np.array([-0.5, -0.5, -0.5]),
+        max_bound=np.array([0.5, 0.5, 0.5]),
+    )
     voxels = voxel_grid.get_voxels()
     grid_size = 50
     mask = np.zeros((grid_size, grid_size, grid_size))
     for vox in voxels:
         mask[vox.grid_index[0], vox.grid_index[1], vox.grid_index[2]] = 1
-    mask = np.pad(mask, 3, 'constant')
+    mask = np.pad(mask, 3, "constant")
     mask = np.resize(mask, (1, mask.shape[0], mask.shape[1], mask.shape[2], 1))
     pred_entropies = entropy_model.predict(mask)
 
@@ -246,23 +310,23 @@ def entropy_plot3():
     ax0 = fig.add_subplot(gs[:3, :5])
     ax1 = fig.add_subplot(gs[3:, :5])
 
-    ax0.imshow(true_entropies, cmap='rainbow')
-    ax0.set_xlabel("Theta (\u03B8)", fontsize='large')
-    ax0.set_ylabel("Phi (\u03A6)", fontsize='large')
+    ax0.imshow(true_entropies, cmap="rainbow")
+    ax0.set_xlabel("Theta (\u03B8)", fontsize="large")
+    ax0.set_ylabel("Phi (\u03A6)", fontsize="large")
     ax0.set_title(f"Original Entropy Map")
     for i in range(5):
         for j in range(12):
             value = true_entropies[i, j]
-            ax0.annotate(f'{value:.2f}', xy=(j - 0.2, i + 0.1))
+            ax0.annotate(f"{value:.2f}", xy=(j - 0.2, i + 0.1))
 
-    ax1.imshow(pred_entropies, cmap='rainbow')
-    ax1.set_xlabel("Theta (\u03B8)", fontsize='large')
-    ax1.set_ylabel("Phi (\u03A6)", fontsize='large')
+    ax1.imshow(pred_entropies, cmap="rainbow")
+    ax1.set_xlabel("Theta (\u03B8)", fontsize="large")
+    ax1.set_ylabel("Phi (\u03A6)", fontsize="large")
     ax1.set_title(f"Predicted Entropy Map")
     for i in range(5):
         for j in range(12):
             value = pred_entropies[i, j]
-            ax1.annotate(f'{value:.2f}', xy=(j - 0.2, i + 0.1))
+            ax1.annotate(f"{value:.2f}", xy=(j - 0.2, i + 0.1))
 
     ax0.set_xticks([i for i in range(12)])
     ax0.set_xticklabels([i * 30 for i in range(12)])
@@ -273,7 +337,9 @@ def entropy_plot3():
     ax1.set_yticks([i for i in range(5)])
     ax1.set_yticklabels([(i + 1) * 30 for i in range(5)])
 
-    peaks = peak_local_max(pred_entropies, min_distance=1, exclude_border=False, indices=True)
+    peaks = peak_local_max(
+        pred_entropies, min_distance=1, exclude_border=False, indices=True
+    )
     x = peaks[:, 0]
     y = peaks[:, 1]
     for i in range(6):
@@ -297,23 +363,28 @@ def entropy_plot3():
 def entropy_prediction():
     FILENAME = args.data
     entropy_model = keras.models.load_model(
-        '/Users/tommaso/Documents/RUG/ResearchProject/data/voxnet-157_val_loss-0.133.h5')
+        "/Users/tommaso/Documents/RUG/ResearchProject/data/voxnet-157_val_loss-0.133.h5"
+    )
     mesh = open3d.io.read_triangle_mesh(FILENAME)
     mesh.vertices = normalize3d(mesh.vertices)
-    mesh.scale(1 / np.max(mesh.get_max_bound() - mesh.get_min_bound()), center=mesh.get_center())
+    mesh.scale(
+        1 / np.max(mesh.get_max_bound() - mesh.get_min_bound()),
+        center=mesh.get_center(),
+    )
     center = (mesh.get_max_bound() + mesh.get_min_bound()) / 2
     mesh = mesh.translate((-center[0], -center[1], -center[2]))
-    voxel_grid = open3d.geometry.VoxelGrid.create_from_triangle_mesh_within_bounds(input=mesh,
-                                                                                   voxel_size=1 / 50,
-                                                                                   min_bound=np.array(
-                                                                                       [-0.5, -0.5, -0.5]),
-                                                                                   max_bound=np.array([0.5, 0.5, 0.5]))
+    voxel_grid = open3d.geometry.VoxelGrid.create_from_triangle_mesh_within_bounds(
+        input=mesh,
+        voxel_size=1 / 50,
+        min_bound=np.array([-0.5, -0.5, -0.5]),
+        max_bound=np.array([0.5, 0.5, 0.5]),
+    )
     voxels = voxel_grid.get_voxels()
     grid_size = 50
     mask = np.zeros((grid_size, grid_size, grid_size))
     for vox in voxels:
         mask[vox.grid_index[0], vox.grid_index[1], vox.grid_index[2]] = 1
-    mask = np.pad(mask, 3, 'constant')
+    mask = np.pad(mask, 3, "constant")
     mask = np.resize(mask, (1, mask.shape[0], mask.shape[1], mask.shape[2], 1))
     pred_entropies = entropy_model.predict(mask)
     pred_entropies = np.resize(pred_entropies, (5, 12))
@@ -321,9 +392,9 @@ def entropy_prediction():
     pred_entropies = np.rot90(pred_entropies)
 
     fig, ax = plt.subplots(1)
-    image = ax.imshow(pred_entropies, cmap='rainbow')
-    ax.set_ylabel("Theta (\u03B8)", fontsize='large')
-    ax.set_xlabel("Phi (\u03A6)", fontsize='large')
+    image = ax.imshow(pred_entropies, cmap="rainbow")
+    ax.set_ylabel("Theta (\u03B8)", fontsize="large")
+    ax.set_xlabel("Phi (\u03A6)", fontsize="large")
     ax.set_title(f"Predicted Entropy Map")
 
     coords = peak_local_max(pred_entropies, min_distance=1, exclude_border=False)
@@ -332,7 +403,7 @@ def entropy_prediction():
         peak_views.append((y * 12) + x)
     peak_views = sorted(peak_views)
     for i in range(len(coords)):
-        circle = plt.Circle((coords[i][1], coords[i][0]), radius=0.2, color='black')
+        circle = plt.Circle((coords[i][1], coords[i][0]), radius=0.2, color="black")
         ax.add_patch(circle)
 
     ax.set_yticks([i for i in range(12)])
@@ -362,13 +433,13 @@ def model_sample(file):
 
 
 def historyplot():
-    sns.set_theme(style='darkgrid')
+    sns.set_theme(style="darkgrid")
     history = pd.read_csv(args.data)
-    history = history.rename(columns={'Unnamed: 0': 'epochs'})
-    history = history[['epochs', 'class_recall', 'val_class_recall']]
+    history = history.rename(columns={"Unnamed: 0": "epochs"})
+    history = history[["epochs", "class_recall", "val_class_recall"]]
     print(history.head())
-    data_preproc = pd.melt(history, ['epochs'])
-    sns.lineplot(x='epochs', y='value', hue='variable', data=data_preproc)
+    data_preproc = pd.melt(history, ["epochs"])
+    sns.lineplot(x="epochs", y="value", hue="variable", data=data_preproc)
     plt.show()
 
 
@@ -376,13 +447,17 @@ def conf_mat():
     data = pd.read_csv(args.data)
     lab_enc = preprocessing.LabelEncoder()
     lab_enc.fit(CLASSES)
-    true_labels = lab_enc.transform(data['true_label'])
-    pred_labels = lab_enc.transform(data['pred_label'])
-    offset_theta = data['offset_theta']
-    offset_phi = data['offset_phi']
-    conf_matrix = metrics.confusion_matrix(y_true=true_labels, y_pred=pred_labels, normalize='true')
-    disp = metrics.ConfusionMatrixDisplay(confusion_matrix=conf_matrix, display_labels=CLASSES)
-    disp.plot(cmap='Blues', xticks_rotation='vertical')
+    true_labels = lab_enc.transform(data["true_label"])
+    pred_labels = lab_enc.transform(data["pred_label"])
+    offset_theta = data["offset_theta"]
+    offset_phi = data["offset_phi"]
+    conf_matrix = metrics.confusion_matrix(
+        y_true=true_labels, y_pred=pred_labels, normalize="true"
+    )
+    disp = metrics.ConfusionMatrixDisplay(
+        confusion_matrix=conf_matrix, display_labels=CLASSES
+    )
+    disp.plot(cmap="Blues", xticks_rotation="vertical")
     plt.show()
 
 
@@ -400,7 +475,10 @@ def custom_draw_geometry(pcd):
 def object_show():
     mesh = open3d.io.read_triangle_mesh(args.data)
     mesh.vertices = normalize3d(mesh.vertices)
-    mesh.scale(0.95 / np.max(mesh.get_max_bound() - mesh.get_min_bound()), center=mesh.get_center())
+    mesh.scale(
+        0.95 / np.max(mesh.get_max_bound() - mesh.get_min_bound()),
+        center=mesh.get_center(),
+    )
     # center = (mesh.get_max_bound() + mesh.get_min_bound()) / 2
     mesh = mesh.translate((0.5, 0.5, 0.5))
     mesh.compute_vertex_normals()
@@ -450,7 +528,9 @@ def plot_best_views():
             rotations.append((-(j + 1) * np.pi / (5 + 1), 0, i * 2 * np.pi / 12))
     last_rotation = (0, 0, 0)
     for rot in rotations:
-        nonblocking_custom_capture(mesh, rot, last_rotation, VIEW_INDEX, capture='image')
+        nonblocking_custom_capture(
+            mesh, rot, last_rotation, VIEW_INDEX, capture="image"
+        )
         VIEW_INDEX = VIEW_INDEX + 1
         last_rotation = rot
 
@@ -462,29 +542,36 @@ def plot_best_views():
             views_images.append(image)
 
     entropy_model = keras.models.load_model(
-        '/Users/tommaso/Documents/RUG/ResearchProject/data/voxnet-157_val_loss-0.133.h5')
+        "/Users/tommaso/Documents/RUG/ResearchProject/data/voxnet-157_val_loss-0.133.h5"
+    )
     mesh = open3d.io.read_triangle_mesh(FILENAME)
     mesh.vertices = normalize3d(mesh.vertices)
-    mesh.scale(1 / np.max(mesh.get_max_bound() - mesh.get_min_bound()), center=mesh.get_center())
+    mesh.scale(
+        1 / np.max(mesh.get_max_bound() - mesh.get_min_bound()),
+        center=mesh.get_center(),
+    )
     center = (mesh.get_max_bound() + mesh.get_min_bound()) / 2
     mesh = mesh.translate((-center[0], -center[1], -center[2]))
-    voxel_grid = open3d.geometry.VoxelGrid.create_from_triangle_mesh_within_bounds(input=mesh,
-                                                                                   voxel_size=1 / 50,
-                                                                                   min_bound=np.array(
-                                                                                       [-0.5, -0.5, -0.5]),
-                                                                                   max_bound=np.array([0.5, 0.5, 0.5]))
+    voxel_grid = open3d.geometry.VoxelGrid.create_from_triangle_mesh_within_bounds(
+        input=mesh,
+        voxel_size=1 / 50,
+        min_bound=np.array([-0.5, -0.5, -0.5]),
+        max_bound=np.array([0.5, 0.5, 0.5]),
+    )
     voxels = voxel_grid.get_voxels()
     grid_size = 50
     mask = np.zeros((grid_size, grid_size, grid_size))
     for vox in voxels:
         mask[vox.grid_index[0], vox.grid_index[1], vox.grid_index[2]] = 1
-    mask = np.pad(mask, 3, 'constant')
+    mask = np.pad(mask, 3, "constant")
     mask = np.resize(mask, (1, mask.shape[0], mask.shape[1], mask.shape[2], 1))
     pred_entropies = entropy_model.predict(mask)
     pred_entropies = np.resize(pred_entropies, (5, 12))
 
     fig, ax = plt.subplots(1, 5)
-    peaks = peak_local_max(pred_entropies, min_distance=1, exclude_border=False, indices=True)
+    peaks = peak_local_max(
+        pred_entropies, min_distance=1, exclude_border=False, indices=True
+    )
     x = peaks[:, 0]
     y = peaks[:, 1]
     for i in range(5):
@@ -509,21 +596,21 @@ def acc_score():
     n_objects = data.shape[0]
     lab_enc = preprocessing.LabelEncoder()
     lab_enc.fit(CLASSES)
-    true_labels = lab_enc.transform(data['true_label'])
-    pred_labels = lab_enc.transform(data['pred_label'])
+    true_labels = lab_enc.transform(data["true_label"])
+    pred_labels = lab_enc.transform(data["pred_label"])
     class_accuracy = metrics.accuracy_score(true_labels, pred_labels)
 
     correct = 0
     for index, row in data.iterrows():
-        if row['offset_theta'] == 0 and row['offset_phi'] == 0:
+        if row["offset_theta"] == 0 and row["offset_phi"] == 0:
             correct = correct + 1
 
-    print(f'Class Acc.: {class_accuracy} - View Acc.: {correct / n_objects}')
+    print(f"Class Acc.: {class_accuracy} - View Acc.: {correct / n_objects}")
 
 
 def main():
     plot_best_views()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

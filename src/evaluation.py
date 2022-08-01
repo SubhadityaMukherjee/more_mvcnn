@@ -2,24 +2,26 @@
 Performs prediction of the model on a test set.
 """
 
+import argparse
+import glob
 import os
 import sys
-import glob
-import argparse
+import tempfile
+import threading
+from time import time
+
+import matplotlib.pyplot as plt
 import numpy as np
 import open3d
 import pandas as pd
-from tensorflow import keras
-import matplotlib.pyplot as plt
-from utility import normalize3d, get_datastamp, get_label_dict
 from skimage.feature import peak_local_max
-import threading
-from time import time
+from tensorflow import keras
 from tqdm import tqdm
-import tempfile
+
+from utility import get_datastamp, get_label_dict, normalize3d
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--modelnet10')
+parser.add_argument("--modelnet10")
 parser.add_argument("--entropy_model")
 parser.add_argument("--classifier_model")
 parser.add_argument("--name")
@@ -35,8 +37,9 @@ TMP_DIR = os.path.join(BASE_DIR, tmp)
 
 
 class ViewData:
-    """ Class to keep track of attributes of the views. """
-    obj_label = ''
+    """Class to keep track of attributes of the views."""
+
+    obj_label = ""
     obj_index = 1
     view_index = 0
     phi = 0
@@ -45,8 +48,18 @@ class ViewData:
     n_voxel = 50
 
 
-CLASSES = ['bathtub', 'bed', 'chair', 'desk', 'dresser',
-           'monitor', 'night_stand', 'sofa', 'table', 'toilet']
+CLASSES = [
+    "bathtub",
+    "bed",
+    "chair",
+    "desk",
+    "dresser",
+    "monitor",
+    "night_stand",
+    "sofa",
+    "table",
+    "toilet",
+]
 
 idx2rot = {}
 count = 0
@@ -78,26 +91,28 @@ def classify(off_file, entropy_model, classifier):
     FILENAME = off_file
     mesh = open3d.io.read_triangle_mesh(FILENAME)
     mesh.vertices = normalize3d(mesh.vertices)
-    mesh.scale(1 / np.max(mesh.get_max_bound() -
-               mesh.get_min_bound()), center=mesh.get_center())
+    mesh.scale(
+        1 / np.max(mesh.get_max_bound() - mesh.get_min_bound()),
+        center=mesh.get_center(),
+    )
     center = (mesh.get_max_bound() + mesh.get_min_bound()) / 2
     mesh = mesh.translate((-center[0], -center[1], -center[2]))
-    voxel_grid = open3d.geometry.VoxelGrid.create_from_triangle_mesh_within_bounds(input=mesh,
-                                                                                   voxel_size=1 / 50,
-                                                                                   min_bound=np.array(
-                                                                                       [-0.5, -0.5, -0.5]),
-                                                                                   max_bound=np.array([0.5, 0.5, 0.5]))
+    voxel_grid = open3d.geometry.VoxelGrid.create_from_triangle_mesh_within_bounds(
+        input=mesh,
+        voxel_size=1 / 50,
+        min_bound=np.array([-0.5, -0.5, -0.5]),
+        max_bound=np.array([0.5, 0.5, 0.5]),
+    )
     voxels = voxel_grid.get_voxels()
     grid_size = 50
     mask = np.zeros((grid_size, grid_size, grid_size))
     for vox in voxels:
         mask[vox.grid_index[0], vox.grid_index[1], vox.grid_index[2]] = 1
-    mask = np.pad(mask, 3, 'constant')
+    mask = np.pad(mask, 3, "constant")
     mask = np.resize(mask, (1, mask.shape[0], mask.shape[1], mask.shape[2], 1))
     pred_entropies = entropy_model.predict(mask)
     pred_entropies = np.resize(pred_entropies, (5, 12))
-    coords = peak_local_max(
-        pred_entropies, min_distance=1, exclude_border=False)
+    coords = peak_local_max(pred_entropies, min_distance=1, exclude_border=False)
     peak_views = []
     for (y, x) in coords:
         peak_views.append((y * 12) + x)
@@ -118,7 +133,7 @@ def classify(off_file, entropy_model, classifier):
     views_images = []
     views_images_dir = os.listdir(TMP_DIR)
     for file in views_images_dir:
-        if '.png' in file:
+        if ".png" in file:
             im = plt.imread(os.path.join(TMP_DIR, file))
             views_images.append(im)
             phi = int(file.split(".")[0].split("_")[-1])
@@ -137,22 +152,25 @@ def classify_topk(off_file, entropy_model, classifier, k):
     FILENAME = off_file
     mesh = open3d.io.read_triangle_mesh(FILENAME)
     mesh.vertices = normalize3d(mesh.vertices)
-    mesh.scale(1 / np.max(mesh.get_max_bound() -
-               mesh.get_min_bound()), center=mesh.get_center())
+    mesh.scale(
+        1 / np.max(mesh.get_max_bound() - mesh.get_min_bound()),
+        center=mesh.get_center(),
+    )
     center = (mesh.get_max_bound() + mesh.get_min_bound()) / 2
     mesh = mesh.translate((-center[0], -center[1], -center[2]))
     # print("[DEBUG] Start voxelization")
-    voxel_grid = open3d.geometry.VoxelGrid.create_from_triangle_mesh_within_bounds(input=mesh,
-                                                                                   voxel_size=1 / 50,
-                                                                                   min_bound=np.array(
-                                                                                       [-0.5, -0.5, -0.5]),
-                                                                                   max_bound=np.array([0.5, 0.5, 0.5]))
+    voxel_grid = open3d.geometry.VoxelGrid.create_from_triangle_mesh_within_bounds(
+        input=mesh,
+        voxel_size=1 / 50,
+        min_bound=np.array([-0.5, -0.5, -0.5]),
+        max_bound=np.array([0.5, 0.5, 0.5]),
+    )
     voxels = voxel_grid.get_voxels()
     grid_size = 50
     mask = np.zeros((grid_size, grid_size, grid_size))
     for vox in voxels:
         mask[vox.grid_index[0], vox.grid_index[1], vox.grid_index[2]] = 1
-    mask = np.pad(mask, 3, 'constant')
+    mask = np.pad(mask, 3, "constant")
     mask = np.resize(mask, (1, mask.shape[0], mask.shape[1], mask.shape[2], 1))
     # print("[DEBUG] Start 1st prediction")
     pred_entropies = entropy_model.predict(mask)
@@ -161,8 +179,9 @@ def classify_topk(off_file, entropy_model, classifier, k):
 
     views = []
     views_images = []
+
     def threaded_view(viewpoint):
-        name = os.path.split(off_file)[-1].rstrip('.off')
+        name = os.path.split(off_file)[-1].rstrip(".off")
         # view_dir = os.path.join( args.view_dataset, 'image')
         view_dir = args.view_dataset
         print(name, viewpoint)
@@ -178,9 +197,10 @@ def classify_topk(off_file, entropy_model, classifier, k):
         # print(f"[DEBUG] theta: {theta}")
         views.append((theta, phi))
 
-
     for viewpoint in topk_views:
-        threadProcess = threading.Thread(name='simplethread', target=threaded_view, args=[viewpoint])
+        threadProcess = threading.Thread(
+            name="simplethread", target=threaded_view, args=[viewpoint]
+        )
         threadProcess.daemon = True
         threadProcess.start()
     views_images = np.array(views_images)
@@ -201,7 +221,8 @@ def mode_rows(a):
     a = np.ascontiguousarray(a)
     void_dt = np.dtype((np.void, a.dtype.itemsize * np.prod(a.shape[1:])))
     _, ids, _count = np.unique(
-        a.view(void_dt).ravel(), return_index=True, return_counts=True)
+        a.view(void_dt).ravel(), return_index=True, return_counts=True
+    )
     largest_count_id = ids[_count.argmax()]
     most_frequent_row = a[largest_count_id]
     return most_frequent_row
@@ -213,28 +234,83 @@ def main():
     classifier = keras.models.load_model(args.classifier_model)
     print(f"[INFO] Models loaded.")
     m40_CLASSES = [
-        'glassBox', 'door', 'car', 'flowerPot', 'piano', 'wardrobe', 'table', 'monitor', 'mantel', 'keyboard', 'sink', 'bowl', 'laptop', 'xbox', 'airplane', 'tvStand', 'curtain', 'cup', 'night_stand', 'sofa', 'rangeHood', 'dresser', 'lamp', 'bench', 'guitar', 'person', 'bathtub', 'bookshelf', 'tent', 'radio', 'desk', 'cone', 'vase', 'stairs', 'plant', 'bottle', 'toilet', 'bed', 'stool', 'chair'
+        "glassBox",
+        "door",
+        "car",
+        "flowerPot",
+        "piano",
+        "wardrobe",
+        "table",
+        "monitor",
+        "mantel",
+        "keyboard",
+        "sink",
+        "bowl",
+        "laptop",
+        "xbox",
+        "airplane",
+        "tvStand",
+        "curtain",
+        "cup",
+        "night_stand",
+        "sofa",
+        "rangeHood",
+        "dresser",
+        "lamp",
+        "bench",
+        "guitar",
+        "person",
+        "bathtub",
+        "bookshelf",
+        "tent",
+        "radio",
+        "desk",
+        "cone",
+        "vase",
+        "stairs",
+        "plant",
+        "bottle",
+        "toilet",
+        "bed",
+        "stool",
+        "chair",
     ]
     m10_CLASSES = [
-        'bathtub', 'bed', 'chair', 'desk', 'dresser',
-        'monitor', 'night_stand', 'sofa', 'table', 'toilet'
+        "bathtub",
+        "bed",
+        "chair",
+        "desk",
+        "dresser",
+        "monitor",
+        "night_stand",
+        "sofa",
+        "table",
+        "toilet",
     ]
-    vec2lab = get_label_dict(CLASSES=m10_CLASSES, inverse=True, )
+    vec2lab = get_label_dict(
+        CLASSES=m10_CLASSES,
+        inverse=True,
+    )
     FIRST_OBJECT = True
     for lab in CLASSES:
-        test_files = sorted(os.listdir(
-            os.path.join(DATA_PATH, lab, 'test')))
-        object_index, labels_true, labels_pred, offset_phi, offset_theta, n_views = [
-        ], [], [], [], [], []
+        test_files = sorted(os.listdir(os.path.join(DATA_PATH, lab, "test")))
+        object_index, labels_true, labels_pred, offset_phi, offset_theta, n_views = (
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+        )
         for x in tqdm(test_files):
-            if '.off' in x:
-                x = os.path.join(DATA_PATH, lab, 'test', x)
+            if ".off" in x:
+                x = os.path.join(DATA_PATH, lab, "test", x)
                 if args.topk:
                     labels, pred_views, views = classify_topk(
-                        x, entropy_model, classifier, int(args.topk))
+                        x, entropy_model, classifier, int(args.topk)
+                    )
                 else:
-                    labels, pred_views, views = classify(
-                        x, entropy_model, classifier)
+                    labels, pred_views, views = classify(x, entropy_model, classifier)
                 # for i in range(len(labels)):
                 #     cl = vec2lab[np.argmax(labels[i])]
                 #     pv = idx2rot[int(np.argmax(pred_views[i]))]
@@ -259,23 +335,32 @@ def main():
                 offset_phi.append(offset[1])
                 n_views.append(len(views))
 
-        csv = pd.DataFrame({"true_label": labels_true,
-                            "object_index": object_index,
-                            "pred_label": labels_pred,
-                            "offset_theta": offset_theta,
-                            "offset_phi": offset_phi,
-                            "n_views": n_views})
+        csv = pd.DataFrame(
+            {
+                "true_label": labels_true,
+                "object_index": object_index,
+                "pred_label": labels_pred,
+                "offset_theta": offset_theta,
+                "offset_phi": offset_phi,
+                "n_views": n_views,
+            }
+        )
 
-        if FIRST_OBJECT:  # Create the main DataFrame and csv, next ones will be appended
+        if (
+            FIRST_OBJECT
+        ):  # Create the main DataFrame and csv, next ones will be appended
             FIRST_OBJECT = False
-            csv.to_csv(os.path.join(
-                 f"evaluation_results_{args.name}.csv"), index=False)
+            csv.to_csv(os.path.join(f"evaluation_results_{args.name}.csv"), index=False)
         else:
-            csv.to_csv(os.path.join( f"evaluation_results_{args.name}.csv"), index=False, mode='a',
-                       header=False)
+            csv.to_csv(
+                os.path.join(f"evaluation_results_{args.name}.csv"),
+                index=False,
+                mode="a",
+                header=False,
+            )
 
     os.rmdir(TMP_DIR)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

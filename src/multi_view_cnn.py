@@ -1,17 +1,19 @@
 import os
 
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 import argparse
+from collections import Counter
+
 import cv2
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
+
 import utility
-from collections import Counter
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--views', nargs='+')
-parser.add_argument('--model')
+parser.add_argument("--views", nargs="+")
+parser.add_argument("--model")
 args = parser.parse_args()
 
 idx2label = {}
@@ -22,10 +24,9 @@ for phi in range(30, 151, 30):
         count += 1
 
 
-
-
 def most_common(lst):
     return max(set(lst), key=lst.count)
+
 
 def main():
     print("[INFO] Prediction results:")
@@ -43,7 +44,9 @@ def main():
     views = results[1]
     dic = utility.get_label_dict(inverse=True)
     for i in range(len(views)):
-        print(f"Predicted: {dic[np.argmax(labels[i])]}, {idx2label[int(np.argmax(views[i]))]} - True: {true_labels[i]}, {idx2label[int(true_views[i])]}")
+        print(
+            f"Predicted: {dic[np.argmax(labels[i])]}, {idx2label[int(np.argmax(views[i]))]} - True: {true_labels[i]}, {idx2label[int(true_views[i])]}"
+        )
 
     print(f"[INFO] Majority vote:")
     labint = []

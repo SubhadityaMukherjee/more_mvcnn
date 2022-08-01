@@ -11,41 +11,62 @@ Example: -x=12 --> yaw values: phi=[0, 30, 60, 90, 120, ... , 330]
 The entropy values are stored in the entropy_dataset.csv file.
 """
 
-import os
-import sys
 import argparse
+import os
 import shutil
-from open3d import *
-import open3d as o3d
+import sys
+
 import cv2
-from utility import normalize3d
-import numpy as np
-import pandas as pd
-from skimage.measure import shannon_entropy
 import matplotlib.pyplot as plt
+import numpy as np
+import open3d as o3d
+import pandas as pd
+from open3d import *
+from skimage.measure import shannon_entropy
 from tqdm import tqdm
 
-parser = argparse.ArgumentParser(description="Generates a dataset in CSV format of depth-views entropy values.")
-parser.add_argument("--modelnet10", help="Specify root directory to the ModelNet10 dataset.", required=True)
+from utility import normalize3d
+
+parser = argparse.ArgumentParser(
+    description="Generates a dataset in CSV format of depth-views entropy values."
+)
+parser.add_argument(
+    "--modelnet10",
+    help="Specify root directory to the ModelNet10 dataset.",
+    required=True,
+)
 parser.add_argument("--out", help="Select a desired output directory.", default="./")
-parser.add_argument("-v", "--verbose", help="Prints current state of the program while executing.", action='store_true')
-parser.add_argument("-x", "--horizontal_split", help="Number of views from a single ring. Each ring is divided in x "
-                                                     "splits so each viewpoint is at an angle of multiple of 360/x. "
-                                                     "Example: -x=12 --> phi=[0, 30, 60, 90, 120, ... , 330].",
-                    default=12,
-                    metavar='VALUE',
-                    type=int
-                    )
-parser.add_argument("-y", "--vertical_split", help="Number of horizontal rings. Each ring of viewpoints is an "
-                                                   "horizontal section of a sphere, looking at the center at an angle "
-                                                   "180/(y+1), skipping 0 and 180 degrees (since the diameter of the "
-                                                   "ring would be zero). Example: -y=5 --> theta=[30, 60, 90, 120, "
-                                                   "150] ; -y=11 --> theta=[15, 30, 45, ... , 150, 165]. ",
-                    default=5,
-                    metavar='VALUE',
-                    type=int
-                    )
-parser.add_argument("--debug", help="Prints debug statements during runtime.", action='store_true')
+parser.add_argument(
+    "-v",
+    "--verbose",
+    help="Prints current state of the program while executing.",
+    action="store_true",
+)
+parser.add_argument(
+    "-x",
+    "--horizontal_split",
+    help="Number of views from a single ring. Each ring is divided in x "
+    "splits so each viewpoint is at an angle of multiple of 360/x. "
+    "Example: -x=12 --> phi=[0, 30, 60, 90, 120, ... , 330].",
+    default=12,
+    metavar="VALUE",
+    type=int,
+)
+parser.add_argument(
+    "-y",
+    "--vertical_split",
+    help="Number of horizontal rings. Each ring of viewpoints is an "
+    "horizontal section of a sphere, looking at the center at an angle "
+    "180/(y+1), skipping 0 and 180 degrees (since the diameter of the "
+    "ring would be zero). Example: -y=5 --> theta=[30, 60, 90, 120, "
+    "150] ; -y=11 --> theta=[15, 30, 45, ... , 150, 165]. ",
+    default=5,
+    metavar="VALUE",
+    type=int,
+)
+parser.add_argument(
+    "--debug", help="Prints debug statements during runtime.", action="store_true"
+)
 args = parser.parse_args()
 
 BASE_DIR = sys.path[0]
@@ -57,6 +78,7 @@ N_VIEWS_W = args.horizontal_split
 N_VIEWS_H = args.vertical_split
 VIEW_INDEX = 0
 FIRST_OBJECT = 1
+
 
 def nonblocking_custom_capture(tr_mesh, rot_xyz, last_rot=(0, 0, 0)):
     """
@@ -84,14 +106,36 @@ def nonblocking_custom_capture(tr_mesh, rot_xyz, last_rot=(0, 0, 0)):
     vis.poll_events()
     vis.update_renderer()
     vis.capture_depth_image(
-        "{}/tmp/{}_{}_x_{}_y_{}.png".format(BASE_DIR, label, VIEW_INDEX, -round(np.rad2deg(rot_xyz[0])),
-                                            round(np.rad2deg(rot_xyz[2]))), depth_scale=10000)
+        "{}/tmp/{}_{}_x_{}_y_{}.png".format(
+            BASE_DIR,
+            label,
+            VIEW_INDEX,
+            -round(np.rad2deg(rot_xyz[0])),
+            round(np.rad2deg(rot_xyz[2])),
+        ),
+        depth_scale=10000,
+    )
     vis.destroy_window()
-    depth = cv2.imread("{}/tmp/{}_{}_x_{}_y_{}.png".format(BASE_DIR, label, VIEW_INDEX, -round(np.rad2deg(rot_xyz[0])),
-                                                           round(np.rad2deg(rot_xyz[2]))))
+    depth = cv2.imread(
+        "{}/tmp/{}_{}_x_{}_y_{}.png".format(
+            BASE_DIR,
+            label,
+            VIEW_INDEX,
+            -round(np.rad2deg(rot_xyz[0])),
+            round(np.rad2deg(rot_xyz[2])),
+        )
+    )
     result = cv2.normalize(depth, depth, 0, 255, norm_type=cv2.NORM_MINMAX)
-    cv2.imwrite("{}/tmp/{}_{}_x_{}_y_{}.png".format(BASE_DIR, label, VIEW_INDEX, -round(np.rad2deg(rot_xyz[0])),
-                                                    round(np.rad2deg(rot_xyz[2]))), result)
+    cv2.imwrite(
+        "{}/tmp/{}_{}_x_{}_y_{}.png".format(
+            BASE_DIR,
+            label,
+            VIEW_INDEX,
+            -round(np.rad2deg(rot_xyz[0])),
+            round(np.rad2deg(rot_xyz[2])),
+        ),
+        result,
+    )
 
 
 labels = []
@@ -106,17 +150,17 @@ if os.path.exists(TMP_DIR):
 else:
     os.makedirs(TMP_DIR)
 
-for split_set in ['train', 'test']:
+for split_set in ["train", "test"]:
     print(split_set)
     for label in tqdm(labels, total=len(labels)):
         files = os.listdir(os.path.join(DATA_PATH, label, split_set))
         files.sort()
         for file in files:  # Removes file without .off extension
-            if not file.endswith('off'):
+            if not file.endswith("off"):
                 files.remove(file)
 
         for file in tqdm(files, total=len(files)):
-            OBJECT_INDEX = file.split('.')[0].split('_')[-1]
+            OBJECT_INDEX = file.split(".")[0].split("_")[-1]
             VIEW_INDEX = 0
             filepath = os.path.join(DATA_PATH, label, split_set, file)
 
@@ -131,7 +175,13 @@ for split_set in ['train', 'test']:
             for j in range(0, N_VIEWS_H):
                 for i in range(N_VIEWS_W):
                     # Excluding 'rings' on 0 and 180 degrees since it would be the same projection but rotated
-                    rotations.append((-(j + 1) * np.pi / (N_VIEWS_H + 1), 0, i * 2 * np.pi / N_VIEWS_W))
+                    rotations.append(
+                        (
+                            -(j + 1) * np.pi / (N_VIEWS_H + 1),
+                            0,
+                            i * 2 * np.pi / N_VIEWS_W,
+                        )
+                    )
             last_rotation = (0, 0, 0)
             for rot in rotations:
                 nonblocking_custom_capture(mesh, rot, last_rotation)
@@ -164,17 +214,28 @@ for split_set in ['train', 'test']:
                         image = plt.imread(os.path.join(TMP_DIR, filename))
                         entropy.append(shannon_entropy(image))
 
-            data = pd.DataFrame({"label": data_label,
-                                 "obj_ind": data_index,
-                                 "code": data_code,
-                                 "rot_x": data_x,
-                                 "rot_y": data_y,
-                                 "entropy": entropy})
-            if FIRST_OBJECT == 1:  # Create the main DataFrame and csv, next ones will be appended
+            data = pd.DataFrame(
+                {
+                    "label": data_label,
+                    "obj_ind": data_index,
+                    "code": data_code,
+                    "rot_x": data_x,
+                    "rot_y": data_y,
+                    "entropy": entropy,
+                }
+            )
+            if (
+                FIRST_OBJECT == 1
+            ):  # Create the main DataFrame and csv, next ones will be appended
                 FIRST_OBJECT = 0
                 data.to_csv(os.path.join(OUT_DIR, "entropy_dataset.csv"), index=False)
             else:
-                data.to_csv(os.path.join(OUT_DIR, "entropy_dataset.csv"), index=False, mode='a', header=False)
+                data.to_csv(
+                    os.path.join(OUT_DIR, "entropy_dataset.csv"),
+                    index=False,
+                    mode="a",
+                    header=False,
+                )
 
             for im in os.listdir(TMP_DIR):
                 os.remove(os.path.join(TMP_DIR, im))

@@ -1,22 +1,23 @@
-import numpy as np
-from skimage.feature import peak_local_max
+"""
+Some helpful utility scripts
+"""
+import concurrent
+import concurrent.futures
+import copy
+import datetime
+import multiprocessing
 import os
 import shutil
-import datetime
-import open3d as o3d
-import copy
-import multiprocessing
 import subprocess
 from concurrent.futures import ProcessPoolExecutor
-import concurrent
+from functools import partial, wraps
 from types import SimpleNamespace
-from functools import partial
 from typing import *
-import os
+
+import numpy as np
+import open3d as o3d
+from skimage.feature import peak_local_max
 from tqdm import tqdm
-import concurrent.futures
-import os
-from functools import wraps
 
 
 def make_parallel(func):
@@ -29,6 +30,7 @@ def make_parallel(func):
     :return: function
     https://medium.com/analytics-vidhya/python-decorator-to-parallelize-any-function-23e5036fb6a
     """
+
     @wraps(func)
     def wrapper(lst, *args, **kwargs):
         """
@@ -60,7 +62,7 @@ def make_parallel(func):
                 # Core Code, where we are creating max number of threads and running the decorated function in parallel.
                 result = []
                 print(f"No of workers: {number_of_workers}")
-                with tqdm(total = len(lst)) as pbar:
+                with tqdm(total=len(lst)) as pbar:
                     with concurrent.futures.ThreadPoolExecutor(
                         max_workers=number_of_workers
                     ) as executer:
@@ -113,7 +115,7 @@ def make_dir(path, delete=False):
 def extract_labels(data):
     mat = np.zeros((60, 1))
     for i in range(0, 60):
-        entropy = float(data[data['view_code'] == i].entropy)
+        entropy = float(data[data["view_code"] == i].entropy)
         mat[i] = entropy
     mat.resize((5, 12))
     coords = peak_local_max(mat, min_distance=1, exclude_border=False)
@@ -172,6 +174,7 @@ def get_label_dict(CLASSES, inverse=False):
         return int2label
     else:
         return label2int
+
 
 # get_label_dict()
 

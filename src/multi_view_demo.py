@@ -8,17 +8,19 @@ a 3D object with entropy estimated multi-views based on depth-views.
 --pose_theta: add a custom rotation to the object to simulate a different pose [EXPERIMENTAL]
 --pose_phi: add a custom rotation to the object to simulate a different pose [EXPERIMENTAL]
 """
+import argparse
 import os
 import sys
-import argparse
+from pathlib import Path
+
+import matplotlib.pyplot as plt
 import numpy as np
 import open3d
-from tensorflow import keras
-import utility
 from skimage.feature import peak_local_max
-import matplotlib.pyplot as plt
-from pathlib import Path
+from tensorflow import keras
 from tqdm import tqdm
+
+import utility
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--data")
@@ -34,7 +36,7 @@ pose_phi = int(args.pose_phi)
 
 
 class ViewData:
-    obj_label = ''
+    obj_label = ""
     obj_index = 1
     view_index = 0
     phi = 0
@@ -86,24 +88,30 @@ def classify(off_file, entropy_model, classifier):
     FILENAME = os.path.join(sys.path[0], off_file)
     mesh = open3d.io.read_triangle_mesh(FILENAME)
     mesh.vertices = normalize3d(mesh.vertices)
-    mesh.scale(1 / np.max(mesh.get_max_bound() - mesh.get_min_bound()), center=mesh.get_center())
+    mesh.scale(
+        1 / np.max(mesh.get_max_bound() - mesh.get_min_bound()),
+        center=mesh.get_center(),
+    )
     center = (mesh.get_max_bound() + mesh.get_min_bound()) / 2
     mesh = mesh.translate((-center[0], -center[1], -center[2]))
     # Add custom rotation for symulating different pose
-    R = mesh.get_rotation_matrix_from_xyz((np.deg2rad(pose_phi), 0, np.deg2rad(pose_theta)))
+    R = mesh.get_rotation_matrix_from_xyz(
+        (np.deg2rad(pose_phi), 0, np.deg2rad(pose_theta))
+    )
     mesh.rotate(R, center=mesh.get_center())
 
-    voxel_grid = open3d.geometry.VoxelGrid.create_from_triangle_mesh_within_bounds(input=mesh,
-                                                                                   voxel_size=1 / 50,
-                                                                                   min_bound=np.array(
-                                                                                       [-0.5, -0.5, -0.5]),
-                                                                                   max_bound=np.array([0.5, 0.5, 0.5]))
+    voxel_grid = open3d.geometry.VoxelGrid.create_from_triangle_mesh_within_bounds(
+        input=mesh,
+        voxel_size=1 / 50,
+        min_bound=np.array([-0.5, -0.5, -0.5]),
+        max_bound=np.array([0.5, 0.5, 0.5]),
+    )
     voxels = voxel_grid.get_voxels()
     grid_size = 50
     mask = np.zeros((grid_size, grid_size, grid_size))
     for vox in voxels:
         mask[vox.grid_index[0], vox.grid_index[1], vox.grid_index[2]] = 1
-    mask = np.pad(mask, 3, 'constant')
+    mask = np.pad(mask, 3, "constant")
     mask = np.resize(mask, (1, mask.shape[0], mask.shape[1], mask.shape[2], 1))
     pred_entropies = entropy_model.predict(mask)
     pred_entropies = np.resize(pred_entropies, (5, 12))
@@ -113,10 +121,10 @@ def classify(off_file, entropy_model, classifier):
         peak_views.append((y * 12) + x)
     peak_views = sorted(peak_views)
     fig, ax = plt.subplots(1)
-    image = ax.imshow(pred_entropies, cmap='rainbow')
-    fig.colorbar(image, orientation='horizontal')
+    image = ax.imshow(pred_entropies, cmap="rainbow")
+    fig.colorbar(image, orientation="horizontal")
     for i in range(len(coords)):
-        circle = plt.Circle((coords[i][1], coords[i][0]), radius=0.2, color='black')
+        circle = plt.Circle((coords[i][1], coords[i][0]), radius=0.2, color="black")
         ax.add_patch(circle)
 
     plt.xticks([i for i in range(12)], [i * 30 for i in range(12)])
@@ -133,7 +141,9 @@ def classify(off_file, entropy_model, classifier):
     mesh.compute_vertex_normals()
 
     # Add custom rotation for symulating different pose
-    R = mesh.get_rotation_matrix_from_xyz((np.deg2rad(pose_phi), 0, np.deg2rad(pose_theta)))
+    R = mesh.get_rotation_matrix_from_xyz(
+        (np.deg2rad(pose_phi), 0, np.deg2rad(pose_theta))
+    )
     mesh.rotate(R, center=mesh.get_center())
 
     rotations = []
@@ -150,15 +160,15 @@ def classify(off_file, entropy_model, classifier):
     views_images_dir = os.listdir(TMP_DIR)
     i = 0
     for file in views_images_dir:
-        if '.png' in file:
+        if ".png" in file:
             i = i + 1
             plt.subplot(int(np.ceil(len(rotations) / 3)), 3, i)
             im = plt.imread(os.path.join(TMP_DIR, file))
             views_images.append(im)
             phi = int(file.split(".")[0].split("_")[-1])
             theta = int(file.split(".")[0].split("_")[-3])
-            plt.imshow(im, cmap='gray')
-            plt.title(label=f'({theta:.2f}, {phi:.2f})')
+            plt.imshow(im, cmap="gray")
+            plt.title(label=f"({theta:.2f}, {phi:.2f})")
             plt.xticks([])
             plt.yticks([])
 
@@ -184,7 +194,9 @@ def most_common(lst):
 def mode_rows(a):
     a = np.ascontiguousarray(a)
     void_dt = np.dtype((np.void, a.dtype.itemsize * np.prod(a.shape[1:])))
-    _, ids, _count = np.unique(a.view(void_dt).ravel(), return_index=True, return_counts=True)
+    _, ids, _count = np.unique(
+        a.view(void_dt).ravel(), return_index=True, return_counts=True
+    )
     largest_count_id = ids[_count.argmax()]
     most_frequent_row = a[largest_count_id]
     return most_frequent_row
@@ -211,17 +223,29 @@ def main():
 
     for ln, x in tqdm(enumerate(data_list), total=len(data_list)):
         labels, pred_views, views = classify(x, entropy_model, classifier)
-        vec2lab = utility.get_label_dict(CLASSES=[
-            'bathtub', 'bed', 'chair', 'desk', 'dresser',
-            'monitor', 'night_stand', 'sofa', 'table', 'toilet'
-        ],inverse=True)
+        vec2lab = utility.get_label_dict(
+            CLASSES=[
+                "bathtub",
+                "bed",
+                "chair",
+                "desk",
+                "dresser",
+                "monitor",
+                "night_stand",
+                "sofa",
+                "table",
+                "toilet",
+            ],
+            inverse=True,
+        )
         for i in range(len(labels)):
             cl = vec2lab[np.argmax(labels[i])]
             pv = idx2rot[int(np.argmax(pred_views[i]))]
             tv = views[i]
             print(
                 f"[INFO] Predicted: {cl:<11} - {str(pv):<10} from {str(tv):<10} --> Offset: ({(np.array(pv) - np.array(tv))[0]}, "
-                f"{(np.array(pv) - np.array(tv))[1]})")
+                f"{(np.array(pv) - np.array(tv))[1]})"
+            )
         print(f"[INFO] Majority vote:")
         labint = []
         for el in labels:
@@ -231,7 +255,7 @@ def main():
         maj_vote = vec2lab[most_common(labint)]
         if maj_vote == labels_orig[ln]:
             acc += 1
-        
+
         angles = []
         pred_angles = []
         for i in range(len(labels)):
@@ -243,5 +267,6 @@ def main():
         print(f"    pose: theta={offset[0]} phi={offset[1]}")
     print(f"Total acc: {acc / len(data_list)}")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     main()

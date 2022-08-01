@@ -1,18 +1,23 @@
+"""
+Reads a triangle mesh as specified and adds Gaussian Noise of varying sigma values
+"""
+import copy
+import math
+import os
+import pathlib
+from glob import glob
+
+import matplotlib.pyplot as plt
+import numpy as np
+import open3d as o3d
+import open3d.visualization.gui as gui
 # %%
 from IPython.display import Image
-import matplotlib.pyplot as plt
-from glob import glob
-import pathlib
-import os
-import math
 from open3d import *
-import open3d as o3d
-import copy
-import numpy as np
-from utils import *
-from tqdm import tqdm
-import open3d.visualization.gui as gui
 from PIL import Image
+from tqdm import tqdm
+from utils import *
+
 # %%
 
 
@@ -25,6 +30,7 @@ def apply_noise(pcd, mu, sigma):
 
 
 # %%
+
 
 def deform_with_sigma(source, sigma):
 
@@ -54,11 +60,11 @@ def deform_with_sigma(source, sigma):
         vis.update_renderer()
         o3d_screenshot_mat = vis.capture_screen_float_buffer()
         # scale and convert to uint8 type
-        o3d_screenshot_mat = (
-            255.0 * np.asarray(o3d_screenshot_mat)).astype(np.uint8)
+        o3d_screenshot_mat = (255.0 * np.asarray(o3d_screenshot_mat)).astype(np.uint8)
         # convert to PIL image
         o3d_screenshot_mat = Image.fromarray(o3d_screenshot_mat, "RGB")
         all_ims.append(o3d_screenshot_mat)
+
 
 # Plot the images of deformed meshes in a grid
 # col = 3

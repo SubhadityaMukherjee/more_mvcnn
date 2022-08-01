@@ -2,10 +2,18 @@
 ![alt text](overview.png)
 The 3D object is transformed into a 56×56×56 voxel grid which is the input size for our model. The entropy model uses a branching architecturethat converges into a fully connected layer. The output of the entropy model is a 60-values vector which is reshaped into a 2D entropy map. From the entropymap  a  peak  selection  algorithm  returns  the  coordinates  of  the  local  maxima.  We  extract  the  views  corresponding  to  those  coordinates  and  we  use  them  asinput for as many CNNs. The label and pose predictions are pooled by majority vote, resulting in the final prediction.
 
+## Repository Structure
+- The author finds large repositories hard to understand sometimes. A helpful overview is provided in classes.svg and functions.svg 
+- These show the classes and functions present in the entire codebase here and how they are linked
+- If you wish to generate the same for your projects, [functionvis](https://pypi.org/project/functionvis/). It was made by the author for a previous project and is FOSS. (Can be installed through `pip install functionvis`)
+
 ## Usage
+- All required scripts are in src/
+- extra_utilities/ has some scripts that were used on a single use basis for some visualizations
+- run_scripts/ contains shell scripts to automate parts of the workflow. Useful for running multiple experiments
 ### Data Preprocessing
-Download and unzip the Modelet10 dataset from the official distribution:
-http://3dvision.princeton.edu/projects/2014/3DShapeNets/ModelNet10.zip (451MB)
+Download and unzip the Modelet10 or 40 dataset from the official distribution:
+https://modelnet.cs.princeton.edu/
 
 Ensure you are running Python>=3.6.5 and import the required libraries by running:
 ```
@@ -14,6 +22,7 @@ pip install -r requirements.txt
 
 WARNING: The dataset is quite large and generation scripts may take 
 hours to complete.
+NOTE: For ModelNet40, replace the dir with where the dataset is stored. It should work directly.
 
 To generate the entropy dataset run:
 ```
@@ -119,5 +128,8 @@ Please adequately refer to the papers any time this code is being used. If you d
 ```
 
 ## Authors: 
-Tommaso Parisotto and [Hamidreza Kasaei](https://hkasaei.github.io/)  
+[Subhaditya Mukherjee](https://subhadityamukherjee.github.io/SubhadityaMukherjeegit/), Tommaso Parisotto and [Hamidreza Kasaei](https://hkasaei.github.io/)  
 Work done while at [RUG](https://www.rug.nl/).
+
+## References
+- Please refer to the bibliography provided

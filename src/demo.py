@@ -7,29 +7,28 @@ a 3D object with entropy estimated multi-views based on depth-views.
 --classifier_model: Keras Model file for single-view classification
 """
 
+import argparse
 import os
 import sys
-import argparse
-import numpy as np
+import time
+
 import cv2
+import matplotlib.pyplot as plt
+import numpy as np
 import open3d
 import pandas as pd
 import tensorflow as tf
-import time
-from tensorflow import keras
-import utility
 from skimage.feature import peak_local_max
 from skimage.measure import shannon_entropy
-import matplotlib.pyplot as plt
+from tensorflow import keras
 
+import utility
 
-
-import os
-os.environ["CUDA_VISIBLE_DEVICES"]="0" #predict on cpu
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"  # predict on cpu
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--data')
+parser.add_argument("--data")
 parser.add_argument("--entropy_model")
 parser.add_argument("--classifier_model")
 args = parser.parse_args()
@@ -37,8 +36,9 @@ TMP_DIR = os.path.join(sys.path[0], "tmp")
 
 keras.mixed_precision.set_global_policy("mixed_float16")
 
+
 class ViewData:
-    obj_label = ''
+    obj_label = ""
     obj_index = 1
     view_index = 0
     phi = 0
@@ -90,20 +90,24 @@ def classify(off_file, entropy_model, classifier):
     FILENAME = os.path.join(sys.path[0], off_file)
     mesh = open3d.io.read_triangle_mesh(FILENAME)
     mesh.vertices = normalize3d(mesh.vertices)
-    mesh.scale(1 / np.max(mesh.get_max_bound() - mesh.get_min_bound()), center=mesh.get_center())
+    mesh.scale(
+        1 / np.max(mesh.get_max_bound() - mesh.get_min_bound()),
+        center=mesh.get_center(),
+    )
     center = (mesh.get_max_bound() + mesh.get_min_bound()) / 2
     mesh = mesh.translate((-center[0], -center[1], -center[2]))
-    voxel_grid = open3d.geometry.VoxelGrid.create_from_triangle_mesh_within_bounds(input=mesh,
-                                                                                   voxel_size=1 / 50,
-                                                                                   min_bound=np.array(
-                                                                                       [-0.5, -0.5, -0.5]),
-                                                                                   max_bound=np.array([0.5, 0.5, 0.5]))
+    voxel_grid = open3d.geometry.VoxelGrid.create_from_triangle_mesh_within_bounds(
+        input=mesh,
+        voxel_size=1 / 50,
+        min_bound=np.array([-0.5, -0.5, -0.5]),
+        max_bound=np.array([0.5, 0.5, 0.5]),
+    )
     voxels = voxel_grid.get_voxels()
     grid_size = 50
     mask = np.zeros((grid_size, grid_size, grid_size))
     for vox in voxels:
         mask[vox.grid_index[0], vox.grid_index[1], vox.grid_index[2]] = 1
-    mask = np.pad(mask, 3, 'constant')
+    mask = np.pad(mask, 3, "constant")
     mask = np.resize(mask, (1, mask.shape[0], mask.shape[1], mask.shape[2], 1))
     pred_entropies = entropy_model.predict(mask.astype(np.float16))
     pred_entropies = np.resize(pred_entropies, (5, 12))
@@ -113,13 +117,13 @@ def classify(off_file, entropy_model, classifier):
         peak_views.append((y * 12) + x)
     peak_views = sorted(peak_views)
     fig, ax = plt.subplots(1)
-    image = ax.imshow(pred_entropies, cmap='rainbow')
+    image = ax.imshow(pred_entropies, cmap="rainbow")
     plt.title("Entropy Map")
-    ax.set_xlabel("Theta (\u03B8)", fontsize='large')
-    ax.set_ylabel("Phi (\u03A6)", fontsize='large')
+    ax.set_xlabel("Theta (\u03B8)", fontsize="large")
+    ax.set_ylabel("Phi (\u03A6)", fontsize="large")
     # fig.colorbar(image, orientation='horizontal')
     for i in range(len(coords)):
-        circle = plt.Circle((coords[i][1], coords[i][0]), radius=0.2, color='black')
+        circle = plt.Circle((coords[i][1], coords[i][0]), radius=0.2, color="black")
         ax.add_patch(circle)
 
     plt.xticks([i for i in range(12)], [i * 30 for i in range(12)])
@@ -147,15 +151,15 @@ def classify(off_file, entropy_model, classifier):
     views_images_dir = os.listdir(TMP_DIR)
     i = 0
     for file in views_images_dir:
-        if '.png' in file:
+        if ".png" in file:
             i = i + 1
             plt.subplot(int(np.ceil(len(rotations) / 3)), 3, i)
             im = plt.imread(os.path.join(TMP_DIR, file))
             views_images.append(im)
             phi = int(file.split(".")[0].split("_")[-1])
             theta = int(file.split(".")[0].split("_")[-3])
-            plt.imshow(im, cmap='gray')
-            plt.title(label=f'({theta:.2f}, {phi:.2f})')
+            plt.imshow(im, cmap="gray")
+            plt.title(label=f"({theta:.2f}, {phi:.2f})")
             plt.xticks([])
             plt.yticks([])
 
@@ -172,7 +176,7 @@ def classify(off_file, entropy_model, classifier):
     for im in os.listdir(TMP_DIR):
         os.remove(os.path.join(TMP_DIR, im))
     os.rmdir(TMP_DIR)
-    return labels, pred_views, views, t2-t1
+    return labels, pred_views, views, t2 - t1
 
 
 def most_common(lst):
@@ -182,12 +186,16 @@ def most_common(lst):
 def mode_rows(a):
     a = np.ascontiguousarray(a)
     void_dt = np.dtype((np.void, a.dtype.itemsize * np.prod(a.shape[1:])))
-    _, ids, _count = np.unique(a.view(void_dt).ravel(), return_index=True, return_counts=True)
+    _, ids, _count = np.unique(
+        a.view(void_dt).ravel(), return_index=True, return_counts=True
+    )
     largest_count_id = ids[_count.argmax()]
     most_frequent_row = a[largest_count_id]
     return most_frequent_row
 
+
 import time
+
 
 def main():
     print(f"[INFO] Loading models...")
@@ -197,8 +205,9 @@ def main():
     x = args.data
     times = []
     from tqdm import tqdm
+
     for i in tqdm(range(11)):
-        labels, pred_views, views,timetaken = classify(x, entropy_model, classifier)
+        labels, pred_views, views, timetaken = classify(x, entropy_model, classifier)
         times.append(timetaken)
     print(f"[INFO] Average time taken: {np.mean(times[1::])}")
     print(f"[INFO] Stddev time taken: {np.std(times[1::])}")
@@ -210,7 +219,8 @@ def main():
         tv = views[i]
         print(
             f"[INFO] Predicted: {cl:<11} - {str(pv):<10} from {str(tv):<10} --> Offset: ({(np.array(pv) - np.array(tv))[0]}, "
-            f"{(np.array(pv) - np.array(tv))[1]})")
+            f"{(np.array(pv) - np.array(tv))[1]})"
+        )
     print(f"[INFO] Majority vote:")
     labint = []
     for el in labels:
@@ -227,5 +237,5 @@ def main():
     print(f"    offset: theta={offset[0]} phi={offset[1]}")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

@@ -4,20 +4,22 @@ Generate binary occupancy grid from the ModelNet10 dataset.
 Stores the voxelized files from the modelnet10 dataset in .npy
 format, ready to be fed to entropy_model.py
 """
+import argparse
+import concurrent
+import multiprocessing
 import os
+import subprocess
 import sys
+from concurrent.futures import ProcessPoolExecutor
+from functools import partial
+from types import SimpleNamespace
+from typing import *
+
 import numpy as np
 import open3d as o3d
-import argparse
-from tqdm import tqdm
 from joblib import Parallel, delayed
-import multiprocessing
-import subprocess
-from concurrent.futures import ProcessPoolExecutor
-import concurrent
-from types import SimpleNamespace
-from functools import partial
-from typing import *
+from tqdm import tqdm
+
 
 def num_cpus():
     """
@@ -28,11 +30,14 @@ def num_cpus():
     except AttributeError:
         return os.cpu_count()
 
+
 def ifnone(a, b):
     """
     Return if None
     """
     return b if a is None else a
+
+
 def parallel(func, arr: Collection, max_workers: int = 12, **kwargs):
 
     """
@@ -56,14 +61,20 @@ def parallel(func, arr: Collection, max_workers: int = 12, **kwargs):
         return results
 
 
-MAX_THREAD = max(multiprocessing.cpu_count(),10) - 1
+MAX_THREAD = max(multiprocessing.cpu_count(), 10) - 1
 # MAX_THREAD = 12
 print(MAX_THREAD)
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--modelnet10', help="Specify root directory to the ModelNet10 dataset.", required=True)
-parser.add_argument('--out', help='Specify folder to save output', default='.')
-parser.add_argument('--n_voxels', help='Number of voxels per dimension.', default=50, type=int)
+parser.add_argument(
+    "--modelnet10",
+    help="Specify root directory to the ModelNet10 dataset.",
+    required=True,
+)
+parser.add_argument("--out", help="Specify folder to save output", default=".")
+parser.add_argument(
+    "--n_voxels", help="Number of voxels per dimension.", default=50, type=int
+)
 args = parser.parse_args()
 
 VOXEL_SIZE = float(1 / args.n_voxels)
@@ -81,30 +92,35 @@ labels.sort()
 
 if os.path.exists(VOX_DIR):
     import shutil
+
     shutil.rmtree(VOX_DIR)
 os.makedirs(VOX_DIR)
 for lab in labels:
-    os.makedirs(os.path.join(VOX_DIR, lab, 'train'))
-    os.makedirs(os.path.join(VOX_DIR, lab, 'test'))
+    os.makedirs(os.path.join(VOX_DIR, lab, "train"))
+    os.makedirs(os.path.join(VOX_DIR, lab, "test"))
+
 
 def run_train(file, label):
     try:
         filename = os.path.join(DATA_PATH, label, "train", file)
         print(f"Elaborating file {filename}...")
-        out_name = os.path.join(VOX_DIR, label, 'train', file.split(".")[0] + ".npy")
+        out_name = os.path.join(VOX_DIR, label, "train", file.split(".")[0] + ".npy")
         mesh = o3d.io.read_triangle_mesh(filename)
         # print(mesh)
-        mesh.scale(1 / np.max(mesh.get_max_bound() - mesh.get_min_bound()),
-                center=mesh.get_center())
+        mesh.scale(
+            1 / np.max(mesh.get_max_bound() - mesh.get_min_bound()),
+            center=mesh.get_center(),
+        )
         center = (mesh.get_max_bound() + mesh.get_min_bound()) / 2
         mesh = mesh.translate((-center[0], -center[1], -center[2]))
 
         # (1/voxel_size)^3 will be the size of the input of the network, 0.02 results in 50^3=125000
-        voxel_grid = o3d.geometry.VoxelGrid.create_from_triangle_mesh_within_bounds(input=mesh, voxel_size=VOXEL_SIZE,
-                                                                                    min_bound=np.array(
-                                                                                        [-0.5, -0.5, -0.5]),
-                                                                                    max_bound=np.array([0.5, 0.5, 0.5]),
-                                                                                    )
+        voxel_grid = o3d.geometry.VoxelGrid.create_from_triangle_mesh_within_bounds(
+            input=mesh,
+            voxel_size=VOXEL_SIZE,
+            min_bound=np.array([-0.5, -0.5, -0.5]),
+            max_bound=np.array([0.5, 0.5, 0.5]),
+        )
         voxels = voxel_grid.get_voxels()
         # print("voxel")
         grid_size = args.n_voxels
@@ -116,22 +132,26 @@ def run_train(file, label):
         print(e)
 
 
-def run_test(file,label):
+def run_test(file, label):
     try:
         filename = os.path.join(DATA_PATH, label, "test", file)
         # print(f"Elaborating file {filename}...")
-        out_name = os.path.join(VOX_DIR, label, 'test', file.split(".")[0] + ".npy")
+        out_name = os.path.join(VOX_DIR, label, "test", file.split(".")[0] + ".npy")
         mesh = o3d.io.read_triangle_mesh(filename)
-        mesh.scale(1 / np.max(mesh.get_max_bound() - mesh.get_min_bound()),
-                center=mesh.get_center())
+        mesh.scale(
+            1 / np.max(mesh.get_max_bound() - mesh.get_min_bound()),
+            center=mesh.get_center(),
+        )
         center = (mesh.get_max_bound() + mesh.get_min_bound()) / 2
         mesh = mesh.translate((-center[0], -center[1], -center[2]))
 
         # (1/voxel_size)^3 will be the size of the input of the network, 0.02 results in 50^3=125000
-        voxel_grid = o3d.geometry.VoxelGrid.create_from_triangle_mesh_within_bounds(input=mesh, voxel_size=VOXEL_SIZE,
-                                                                                    min_bound=np.array(
-                                                                                        [-0.5, -0.5, -0.5]),
-                                                                                    max_bound=np.array([0.5, 0.5, 0.5]), )
+        voxel_grid = o3d.geometry.VoxelGrid.create_from_triangle_mesh_within_bounds(
+            input=mesh,
+            voxel_size=VOXEL_SIZE,
+            min_bound=np.array([-0.5, -0.5, -0.5]),
+            max_bound=np.array([0.5, 0.5, 0.5]),
+        )
         voxels = voxel_grid.get_voxels()
         grid_size = args.n_voxels
         mask = np.zeros((grid_size, grid_size, grid_size))
@@ -147,12 +167,12 @@ for label in tqdm(labels, total=len(labels)):
     files_test = os.listdir(os.path.join(DATA_PATH, label, "test"))
     files_train.sort()
     files_test.sort()
-    
+
     for file in files_train:
-        if not file.endswith('off'):
+        if not file.endswith("off"):
             files_train.remove(file)
     for file in files_test:
-        if not file.endswith('off'):
+        if not file.endswith("off"):
             files_test.remove(file)
 
     print(len(files_train), len(files_test))
@@ -160,4 +180,6 @@ for label in tqdm(labels, total=len(labels)):
     # results = Parallel(n_jobs=MAX_THREAD)(delayed(run_train)(file, label) for file in files_train)
 
     # results = Parallel(n_jobs=MAX_THREAD)(delayed(run_train)(file, label) for file in files_test)
-    results = parallel(partial(run_train, label = label), files_train, num_cpus = MAX_THREAD)
+    results = parallel(
+        partial(run_train, label=label), files_train, num_cpus=MAX_THREAD
+    )

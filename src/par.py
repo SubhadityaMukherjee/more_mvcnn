@@ -1,12 +1,17 @@
+"""
+Some utlity scripts for parallel processing wherever needed
+"""
+import concurrent
 import multiprocessing
+import os
 import subprocess
 from concurrent.futures import ProcessPoolExecutor
-import concurrent
-from types import SimpleNamespace
 from functools import partial
+from types import SimpleNamespace
 from typing import *
-import os
+
 from tqdm import tqdm
+
 
 def num_cpus():
     """
@@ -17,11 +22,14 @@ def num_cpus():
     except AttributeError:
         return os.cpu_count()
 
+
 def ifnone(a, b):
     """
     Return if None
     """
     return b if a is None else a
+
+
 def parallel(func, arr: Collection, max_workers: int = 12, **kwargs):
 
     """
@@ -43,4 +51,3 @@ def parallel(func, arr: Collection, max_workers: int = 12, **kwargs):
                 results.append(f.result())
     if any([o is not None for o in results]):
         return results
-
