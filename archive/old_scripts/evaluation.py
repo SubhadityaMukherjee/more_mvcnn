@@ -13,6 +13,7 @@ from tensorflow import keras
 import matplotlib.pyplot as plt
 from utility import normalize3d, get_datastamp, get_label_dict
 from skimage.feature import peak_local_max
+import threading
 from time import time
 from tqdm import tqdm
 import tempfile
@@ -160,12 +161,13 @@ def classify_topk(off_file, entropy_model, classifier, k):
 
     views = []
     views_images = []
-
-    for viewpoint in topk_views:
+    def threaded_view(viewpoint):
         name = os.path.split(off_file)[-1].rstrip('.off')
-        view_dir = os.path.join(BASE_DIR, args.view_dataset, 'image')
-        file = glob.glob(os.path.join(
-            view_dir, f"{name}*vc_{viewpoint}.png"))[0]
+        # view_dir = os.path.join( args.view_dataset, 'image')
+        view_dir = args.view_dataset
+        print(name, viewpoint)
+        print(glob.glob(os.path.join(view_dir, f"{name}*vc_{viewpoint}.png")))
+        file = glob.glob(os.path.join(view_dir, f"{name}*vc_{viewpoint}.png"))[0]
         # print(f"[DEBUG] vc: {viewpoint}")
         im = plt.imread(file)
         views_images.append(im)
@@ -175,6 +177,12 @@ def classify_topk(off_file, entropy_model, classifier, k):
         theta = int(file.split(".")[0].split("_")[-5])
         # print(f"[DEBUG] theta: {theta}")
         views.append((theta, phi))
+
+
+    for viewpoint in topk_views:
+        threadProcess = threading.Thread(name='simplethread', target=threaded_view, args=[viewpoint])
+        threadProcess.daemon = True
+        threadProcess.start()
     views_images = np.array(views_images)
     # print("[DEBUG] Start 2nd prediction")
     results = classifier.predict(views_images)
@@ -215,12 +223,12 @@ def main():
     FIRST_OBJECT = True
     for lab in CLASSES:
         test_files = sorted(os.listdir(
-            os.path.join(BASE_DIR, DATA_PATH, lab, 'test')))
+            os.path.join(DATA_PATH, lab, 'test')))
         object_index, labels_true, labels_pred, offset_phi, offset_theta, n_views = [
         ], [], [], [], [], []
         for x in tqdm(test_files):
             if '.off' in x:
-                x = os.path.join(BASE_DIR, DATA_PATH, lab, 'test', x)
+                x = os.path.join(DATA_PATH, lab, 'test', x)
                 if args.topk:
                     labels, pred_views, views = classify_topk(
                         x, entropy_model, classifier, int(args.topk))
@@ -261,9 +269,9 @@ def main():
         if FIRST_OBJECT:  # Create the main DataFrame and csv, next ones will be appended
             FIRST_OBJECT = False
             csv.to_csv(os.path.join(
-                BASE_DIR, f"evaluation_results_{args.name}.csv"), index=False)
+                 f"evaluation_results_{args.name}.csv"), index=False)
         else:
-            csv.to_csv(os.path.join(BASE_DIR, f"evaluation_results_{args.name}.csv"), index=False, mode='a',
+            csv.to_csv(os.path.join( f"evaluation_results_{args.name}.csv"), index=False, mode='a',
                        header=False)
 
     os.rmdir(TMP_DIR)

@@ -118,7 +118,16 @@
 
 BTS=1
 EPOCHS=1
-# SIGMA=0.02
+SIGMA=0.0
+
+# python3 single_view_cnn.py --train_data=old_data/view-dataset-train-m10/image/ --test_data=view-dataset-deformed/modelnet10/image/$SIGMA --batch_size=$BTS --epochs=$EPOCHS --architecture="mobilenetv2" --name "new_m10_mobilenetv2_sig_$SIGMA" --train_sample_ratio 10 --test_sample_ratio 10 --load_model "/media/hdd/github/more_mvcnn/old_scripts/old_data/classifier_model_mnet10.h5" --sigma $SIGMA --getpred
+
+# python3 single_view_cnn.py --train_data=old_data/view-dataset-train-m10/image/ --test_data=view-dataset-deformed/modelnet10/image/$SIGMA --batch_size=$BTS --epochs=$EPOCHS --architecture="vgg" --name "new_m10_vgg_sig_$SIGMA" --train_sample_ratio 10 --test_sample_ratio 10 --load_model "/media/hdd/github/more_mvcnn/old_logs/vgg-28-Feb-033836-m10_vgg_1_10/classification_model.h5" --sigma $SIGMA --getpred
+
 # python3 single_view_cnn.py --train_data=old_data/view-dataset-train/image/ --test_data=view-dataset-deformed/modelnet40/image/$SIGMA --batch_size=$BTS --epochs=$EPOCHS --architecture="vgg" --name "new_m40_vgg_sig_$SIGMA" --train_sample_ratio 10 --test_sample_ratio 10 --load_model "/media/hdd/github/more_mvcnn/old_logs/vgg-28-Feb-035400-m40_vgg_1_10/classification_model.h5" --sigma $SIGMA --getpred --modeln "modelnet40"
-python3 single_view_cnn.py --train_data=old_data/view-dataset-train/image/ --test_data=old_data/view-dataset-test/image --batch_size=$BTS --epochs=$EPOCHS --architecture="vgg" --name "new_m40_vgg_sig" --train_sample_ratio 10 --test_sample_ratio 10 --load_model "/media/hdd/github/more_mvcnn/old_logs/vgg-28-Feb-035400-m40_vgg_1_10/classification_model.h5" --getpred --modeln "modelnet40"
+# python3 single_view_cnn.py --train_data=old_data/view-dataset-train/image/ --test_data=old_data/view-dataset-test/image --batch_size=$BTS --epochs=$EPOCHS --architecture="vgg" --name "new_m40_vgg_sig" --train_sample_ratio 10 --test_sample_ratio 10 --load_model "/media/hdd/github/more_mvcnn/old_logs/vgg-28-Feb-035400-m40_vgg_1_10/classification_model.h5" --getpred --modeln "modelnet40"
 # python3 single_view_cnn.py --train_data=old_data/view-dataset-train/image/ --test_data=old_data/view-dataset-test/image/ --batch_size=$BTS --epochs=$EPOCHS --architecture="vgg" --name "new_m40_vgg_sig_$SIGMA" --train_sample_ratio 10 --test_sample_ratio 10 --load_model "/media/hdd/github/more_mvcnn/old_logs/vgg-28-Feb-035400-m40_vgg_1_10/classification_model.h5" --getpred --modeln "modelnet40"
+
+
+# export MESA_LOADER_DRIVER_OVERRIDE=i965;python3 multi_view_demo.py --data "/media/hdd/Datasets/ModelNet10/bathtub/test/bathtub_0107.off" --entropy_model "old_data/entropy_model_mnet10.h5" --classifier_model "old_data/classifier_model_mnet10.h5"
+export MESA_LOADER_DRIVER_OVERRIDE=i965;python3 evaluation.py --modelnet10 "/media/hdd/Datasets/ModelNet10" --entropy_model "old_data/entropy_model_mnet10.h5" --classifier_model "old_data/classifier_model_mnet10.h5" --name "mnet10_entropy_model" --view_dataset "old_data/view-dataset-deformed/modelnet10/image/0.0/"

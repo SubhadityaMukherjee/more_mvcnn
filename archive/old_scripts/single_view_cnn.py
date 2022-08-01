@@ -7,14 +7,23 @@ import cv2
 import numpy as np
 import pandas as pd
 import argparse
+from tqdm import tqdm
 import os
 import random
 from keras.callbacks import Callback
 import matplotlib.pyplot as plt    
 import matplotlib.patches as mpatches  
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import classification_report, confusion_matrix
+from pathlib import Path
 import itertools
 import numpy as np
+import sklearn
+from sklearn.metrics import ConfusionMatrixDisplay
+from sklearn.metrics import confusion_matrix
+from sklearn.metrics import multilabel_confusion_matrix
+import matplotlib.pyplot as plt
+import numpy as np
+
 
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -92,67 +101,6 @@ os.mkdir(MODEL_DIR)
 class StopForPlot(Callback):
     def on_train_begin(self, logs=None):
             self.model.stop_training = True
-
-class ConfusionMatrixPlotter(Callback):
-    """Plot the confusion matrix on a graph and update after each epoch
-    # Arguments
-        X_val: The input values 
-        Y_val: The expected output values
-        classes: The categories as a list of string names
-        normalize: True - normalize to [0,1], False - keep as is
-        cmap: Specify matplotlib colour map
-        title: Graph Title
-    """
-    def __init__(self, X_val, Y_val, classes, normalize=False, cmap=plt.cm.Blues, title='Confusion Matrix'):
-        self.X_val = X_val
-        self.Y_val = Y_val
-        self.title = title
-        self.classes = classes
-        self.normalize = normalize
-        self.cmap = cmap
-        plt.ion()
-        #plt.show()
-        plt.figure()
-
-        plt.title(self.title)
-        
-        
-
-    def on_train_begin(self, logs={}):
-        pass
-
-    
-    def on_epoch_end(self, epoch, logs={}):    
-        plt.clf()
-        pred = self.model.predict(self.X_val)
-        max_pred = np.argmax(pred, axis=1)
-        max_y = np.argmax(self.Y_val, axis=1)
-        cnf_mat = confusion_matrix(max_y, max_pred)
-   
-        if self.normalize:
-            cnf_mat = cnf_mat.astype('float') / cnf_mat.sum(axis=1)[:, np.newaxis]
-
-        thresh = cnf_mat.max() / 2.
-        for i, j in itertools.product(range(cnf_mat.shape[0]), range(cnf_mat.shape[1])):
-            plt.text(j, i, cnf_mat[i, j],                                          
-                         horizontalalignment="center",
-                         color="white" if cnf_mat[i, j] > thresh else "black")
-
-        plt.imshow(cnf_mat, interpolation='nearest', cmap=self.cmap)
-
-        # Labels
-        tick_marks = np.arange(len(self.classes))
-        plt.xticks(tick_marks, self.classes, rotation=45)
-        plt.yticks(tick_marks, self.classes)
-
-        plt.colorbar()
-                                                                                                         
-        plt.tight_layout()                                                    
-        plt.ylabel('True label')                                              
-        plt.xlabel('Predicted label')                                         
-        #plt.draw()
-        plt.show()
-        plt.pause(0.001)
 
 METRICS = [
     keras.metrics.CategoricalAccuracy(name='accuracy'),
@@ -411,29 +359,44 @@ def main():
         # if args.sigma is not None:
         #     with open("results/deformed_predictions.csv", "a+") as f:
         #         f.write(f"{args.name},{str(args.sigma)},{str(','.join([str(x) for x in predictions]))}" + "\n")
-        new_test = test_data
-        x_check,y_check = next(iter(new_test.batch(400)))
-        x_check,y_check = next(iter(new_test.batch(400)))
+
+        # This bit is for the confusion matrix
+
+        data_list = []
+        path_test = "/media/hdd/github/more_mvcnn/old_scripts/view-dataset-deformed/modelnet10/image/0.0/"
+        files = os.listdir(path_test)
+        files.sort()
+        files = [files[x] for x in range(0,len(files))]
+        files = files
+        labels = [x.split("_")[0] for x in files]
+        predicted_labels = []
+        # images = [cv2.imread(os.path.join(path_test, x))/255.0 for x in files]
+        for x in tqdm(files, total=len(files)):
+            image = cv2.imread(os.path.join(path_test, x))/255.0
+            image = cv2.resize(image, (224, 224))
+            image = np.expand_dims(image, axis=0)
+            pred = model.predict(image)[0]
+            # print(np.argmax(pred))
+            predicted_labels.append(reverse_labels_dict[np.argmax(pred)])
+        print(labels, predicted_labels)
+        print(classification_report(labels, predicted_labels))
+        # new_test = test_data
+        # x_check,y_check = next(iter(new_test.batch(400)))
+        # x_check,y_check = next(iter(new_test.batch(400)))
         # out = [model.predict(tmp)[0].argmax(axis=-1) for tmp in x_check]
-        import sklearn
-        from sklearn.metrics import ConfusionMatrixDisplay
-        from sklearn.metrics import confusion_matrix
-        from sklearn.metrics import multilabel_confusion_matrix
-        import matplotlib.pyplot as plt
-        import numpy as np
-       
+               
         # print(y_check[0][0].shape, out.shape)
         # print(len(out[0]), len(y_check[0][0]))
         # y_prob = [np.argmax(x) for x in y_check[0][0]]
 
-        out = [np.argmax(model.predict(tmp)[0]) for tmp in x_check]
-        y_prob = [np.argmax(x) for x in y_check[0]]
+        # out = [np.argmax(model.predict(tmp)[0]) for tmp in x_check]
+        # y_prob = [np.argmax(x) for x in y_check[0]]
         # print(len(out), len(y_prob))
-        print(len(set(out)), len(set(y_prob)))
-        import pickle
-        with open("cons.pkl", "wb") as f:
-            pickle.dump((out, y_prob), f)
-        print("saved-1")
+        # print(len(set(out)), len(set(y_prob)))
+        # import pickle
+        # with open("cons.pkl", "wb") as f:
+        #     pickle.dump((out, y_prob), f)
+        # print("saved-1")
         
         # batch_out, batch_yprob = [], []
         # for i in out:
@@ -446,17 +409,15 @@ def main():
         # print(out[0], y_prob)
         # test_labels = [reverse_labels_dict[x] for x in y_prob]
         # print(test_labels)
-        test_labels = reverse_labels_dict.keys()
-        cm =confusion_matrix(y_prob, out, normalize='pred')
+        # test_labels = reverse_labels_dict.keys()
+        # cm =confusion_matrix(y_prob, out, normalize='pred')
         # print(cm)
 
-        disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=test_labels)
-        fig, ax = plt.subplots(figsize=(30,30))
-        # plt.xaxis.set_ticklabels(test_labels)
-        # plt.yaxis.set_ticklabels(test_labels[::-1])
-        disp.plot(cmap=plt.cm.Blues, ax=ax)
-        plt.savefig("results/confusion_matrix.png")
-        print("saved")
+        # disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=test_labels)
+        # fig, ax = plt.subplots(figsize=(30,30))
+        # disp.plot(cmap=plt.cm.Blues, ax=ax)
+        # plt.savefig("results/confusion_matrix.png")
+        # print("saved")
 
 
 if __name__ == '__main__':

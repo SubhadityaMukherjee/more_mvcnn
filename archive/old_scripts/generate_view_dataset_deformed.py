@@ -283,7 +283,7 @@ file_list = [x for x in file_list if x.endswith('off')]
 # print(file_list)
 # exit(0)
 
-for deform in tqdm([0.02, 0.04, 0.06, 0.08, 0.1]):
+for deform in tqdm([0.0, 0.02, 0.04, 0.06, 0.08, 0.1]):
     results = parallel(partial(train, label=str(deform)), file_list, 10)
     # break
 

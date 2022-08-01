@@ -17,6 +17,8 @@ from tensorflow import keras
 import utility
 from skimage.feature import peak_local_max
 import matplotlib.pyplot as plt
+from pathlib import Path
+from tqdm import tqdm
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--data")
@@ -120,7 +122,7 @@ def classify(off_file, entropy_model, classifier):
     plt.xticks([i for i in range(12)], [i * 30 for i in range(12)])
     plt.yticks([i for i in range(5)], [(i + 1) * 30 for i in range(5)])
     plt.title(f'Entropy Map of {os.path.split(off_file)[-1].rstrip(".off")}')
-    plt.show()
+    # plt.show()
 
     # print(f"[DEBUG] peak_views : {np.shape(peak_views)}")
     print(f"[DEBUG] peak_views : {peak_views}")
@@ -163,11 +165,12 @@ def classify(off_file, entropy_model, classifier):
             views.append((theta, phi))
 
     views_images = np.array(views_images)
-    plt.show()
+    # plt.show()
 
     results = classifier.predict(views_images)
     labels = results[0]
     pred_views = results[1]
+    # print(results)
     for im in os.listdir(TMP_DIR):
         os.remove(os.path.join(TMP_DIR, im))
     os.rmdir(TMP_DIR)
@@ -192,31 +195,53 @@ def main():
     entropy_model = keras.models.load_model(args.entropy_model)
     classifier = keras.models.load_model(args.classifier_model)
     print(f"[INFO] Models loaded.")
-    x = args.data
-    labels, pred_views, views = classify(x, entropy_model, classifier)
-    vec2lab = utility.get_label_dict(inverse=True)
-    for i in range(len(labels)):
-        cl = vec2lab[np.argmax(labels[i])]
-        pv = idx2rot[int(np.argmax(pred_views[i]))]
-        tv = views[i]
-        print(
-            f"[INFO] Predicted: {cl:<11} - {str(pv):<10} from {str(tv):<10} --> Offset: ({(np.array(pv) - np.array(tv))[0]}, "
-            f"{(np.array(pv) - np.array(tv))[1]})")
-    print(f"[INFO] Majority vote:")
-    labint = []
-    for el in labels:
-        labint.append(np.argmax(el))
-    print(f"    class: {vec2lab[most_common(labint)]}")
-    angles = []
-    pred_angles = []
-    for i in range(len(labels)):
-        angles.append(views[i])
-        pred_angles.append(idx2rot[int(np.argmax(pred_views[i]))])
-    angles = np.array(angles)
-    pred_angles = np.array(pred_angles)
-    offset = mode_rows(pred_angles - angles)
-    print(f"    pose: theta={offset[0]} phi={offset[1]}")
+    # x = args.data
+    acc = 0
+    data_list = []
+    ds_d = "/media/hdd/Datasets/ModelNet10/"
+    ds_l = os.listdir(ds_d)
+    ds_l = [x for x in ds_l if Path(ds_d + x).is_dir()]
+    for ds in ds_l:
+        for file in os.listdir(os.path.join(ds_d, ds, "test"))[:20]:
+            if ".off" in file:
+                data_list.append(os.path.join(ds_d, ds, "test", file))
+    # print(data_list[:10], len(data_list))
+    labels_orig = [str(x).split("/")[-3] for x in data_list]
+    # print(labels_orig[:10], len(labels_orig))
 
+    for ln, x in tqdm(enumerate(data_list), total=len(data_list)):
+        labels, pred_views, views = classify(x, entropy_model, classifier)
+        vec2lab = utility.get_label_dict(CLASSES=[
+            'bathtub', 'bed', 'chair', 'desk', 'dresser',
+            'monitor', 'night_stand', 'sofa', 'table', 'toilet'
+        ],inverse=True)
+        for i in range(len(labels)):
+            cl = vec2lab[np.argmax(labels[i])]
+            pv = idx2rot[int(np.argmax(pred_views[i]))]
+            tv = views[i]
+            print(
+                f"[INFO] Predicted: {cl:<11} - {str(pv):<10} from {str(tv):<10} --> Offset: ({(np.array(pv) - np.array(tv))[0]}, "
+                f"{(np.array(pv) - np.array(tv))[1]})")
+        print(f"[INFO] Majority vote:")
+        labint = []
+        for el in labels:
+            labint.append(np.argmax(el))
+        print(f"    class: {vec2lab[most_common(labint)]}")
+        # print(f"     orig: {labels_orig[ln]}")
+        maj_vote = vec2lab[most_common(labint)]
+        if maj_vote == labels_orig[ln]:
+            acc += 1
+        
+        angles = []
+        pred_angles = []
+        for i in range(len(labels)):
+            angles.append(views[i])
+            pred_angles.append(idx2rot[int(np.argmax(pred_views[i]))])
+        angles = np.array(angles)
+        pred_angles = np.array(pred_angles)
+        offset = mode_rows(pred_angles - angles)
+        print(f"    pose: theta={offset[0]} phi={offset[1]}")
+    print(f"Total acc: {acc / len(data_list)}")
 
 if __name__ == '__main__':
     main()
