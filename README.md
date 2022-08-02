@@ -113,7 +113,7 @@ On terminal it will report the extracted views with their view-code [0 - 59] and
 show the majority voting for class and pose.
 
 ## Paper
-Latest version available on [arXiv](https://arxiv.org/)  (March 2021)
+Latest version available on [arXiv](https://arxiv.org/)  (August 2022)
 
 ![alt text](paper.png)
 
